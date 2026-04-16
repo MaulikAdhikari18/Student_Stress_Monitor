@@ -1,43 +1,28 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import pandas as pd
 import datetime
-
-df = pd.read_csv("data/stress_data.csv")
+import os
 
 st.title("🎓 Student Stress Monitor Dashboard")
 
-# Sample data (we will replace later)
-data = {
-    "Day": ["Mon", "Tue", "Wed", "Thu", "Fri"],
-    "Stress": [3, 5, 6, 4, 7],
-    "Sleep": [6, 5, 4, 7, 3]
-}
+# -------------------- LOAD DATA --------------------
+file_path = os.path.join("data", "stress_data.csv")
 
-df = pd.DataFrame(data)
+# ✅ Create file if not exists
+if not os.path.exists(file_path):
+    df = pd.DataFrame(columns=["Day", "Stress", "Sleep"])
+    df.to_csv(file_path, index=False)
 
-# Line Chart (Stress)
-st.subheader("📈 Stress Over Time")
-st.line_chart(df.set_index("Day")["Stress"])
+df = pd.read_csv(file_path)
 
-# Bar Chart (Sleep)
-st.subheader("📊 Sleep Hours")
-st.bar_chart(df.set_index("Day")["Sleep"])
-
-# Stats
-st.subheader("📋 Current Status")
-st.write("Stress Level: HIGH")
-st.write("Average Sleep: 5 hrs")
-st.write("Recommendation: Take a break 😌")
-
-st.sidebar.header("Enter Today's Data")
+# -------------------- SIDEBAR INPUT --------------------
+st.sidebar.header("📥 Enter Today's Data")
 
 sleep = st.sidebar.slider("Sleep Hours", 0, 10, 5)
 study = st.sidebar.slider("Study Hours", 0, 12, 6)
 screen = st.sidebar.slider("Screen Time", 0, 12, 5)
 
-# Simple stress logic (temporary AI)
+# -------------------- STRESS CALCULATION --------------------
 stress_score = (10 - sleep) + study + screen
 
 if stress_score > 15:
@@ -47,27 +32,47 @@ elif stress_score > 10:
 else:
     level = "LOW"
 
+# -------------------- DISPLAY --------------------
 st.subheader("🎯 Predicted Stress Level")
-st.write(level)
+st.write(f"**{level}** (Score: {stress_score})")
 
-st.subheader("💡 Recommendation")
-
-if level == "HIGH":
-    st.warning("⚠️ Take a break, reduce screen time, and relax")
-elif level == "MEDIUM":
-    st.info("🙂 Try balancing study and rest")
-else:
-    st.success("✅ You're doing well! Keep it up")
-
-if st.sidebar.button("Save Data"):
+# -------------------- SAVE BUTTON --------------------
+if st.sidebar.button("💾 Save Data"):
     new_data = {
         "Day": datetime.datetime.now().strftime("%a"),
         "Stress": stress_score,
         "Sleep": sleep
     }
 
-    df = pd.read_csv("data/stress_data.csv")
     df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
-    df.to_csv("data/stress_data.csv", index=False)
+    df.to_csv(file_path, index=False)
 
-    st.success("Data Saved Successfully!")
+    st.success("✅ Data Saved Successfully!")
+    st.rerun()   # ✅ refresh dashboard immediately
+
+# -------------------- CHARTS --------------------
+st.subheader("📈 Stress Over Time")
+
+if not df.empty:
+    st.line_chart(df.set_index("Day")["Stress"])
+else:
+    st.warning("No data available yet.")
+
+st.subheader("📊 Sleep Hours")
+
+if not df.empty:
+    st.bar_chart(df.set_index("Day")["Sleep"])
+
+# -------------------- RECOMMENDATION --------------------
+st.subheader("💡 Recommendation")
+
+if level == "HIGH":
+    st.warning("⚠️ High stress detected! Take a break, reduce screen time, and relax.")
+elif level == "MEDIUM":
+    st.info("🙂 Moderate stress. Try balancing study and rest.")
+else:
+    st.success("✅ You're doing well!")
+
+# -------------------- FOOTER --------------------
+st.markdown("---")
+st.caption("Built using Streamlit | Student Stress Monitor")
