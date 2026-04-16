@@ -23,7 +23,7 @@
 
 ## 🎯 Overview
 
-Student Stress Monitor is a **[INSERT PROJECT DESCRIPTION]** designed to help educational institutions better understand and support student mental health. By tracking stress indicators and providing actionable insights, this tool enables students and counselors to take proactive steps toward wellness.
+Student Stress Monitor is a designed to help educational institutions better understand and support student mental health. By tracking stress indicators and providing actionable insights, this tool enables students and counselors to take proactive steps toward wellness.
 
 ### Problem Statement
 Students face increasing pressure from academic workload, social expectations, and personal challenges. Early identification and intervention can significantly impact mental health outcomes.
