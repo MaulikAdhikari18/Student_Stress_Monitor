@@ -1,6 +1,10 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import pandas as pd
+import datetime
+
+df = pd.read_csv("data/stress_data.csv")
 
 st.title("🎓 Student Stress Monitor Dashboard")
 
@@ -54,3 +58,16 @@ elif level == "MEDIUM":
     st.info("🙂 Try balancing study and rest")
 else:
     st.success("✅ You're doing well! Keep it up")
+
+if st.sidebar.button("Save Data"):
+    new_data = {
+        "Day": datetime.datetime.now().strftime("%a"),
+        "Stress": stress_score,
+        "Sleep": sleep
+    }
+
+    df = pd.read_csv("data/stress_data.csv")
+    df = pd.concat([df, pd.DataFrame([new_data])], ignore_index=True)
+    df.to_csv("data/stress_data.csv", index=False)
+
+    st.success("Data Saved Successfully!")
