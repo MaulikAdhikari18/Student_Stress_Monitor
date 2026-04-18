@@ -4,10 +4,11 @@ import numpy as np
 import datetime
 import os
 import pickle
+import sqlite3
+import hashlib
 import matplotlib.pyplot as plt
-import seaborn as sns
 
-# ─── Page Config ────────────────────────────────────────────────────────────
+# ─── Page Config ─────────────────────────────────────────────────────────────
 
 st.set_page_config(
     page_title="Student Stress Monitor",
@@ -16,648 +17,748 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ─── Custom CSS ─────────────────────────────────────────────────────────────
+# ─── CSS ─────────────────────────────────────────────────────────────────────
 
 st.markdown("""
 <style>
     .main-title {
-        font-size: 2rem; font-weight: 700;
-        background: linear-gradient(135deg, #534AB7, #D4537E);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        font-size:2rem; font-weight:700;
+        background:linear-gradient(135deg,#534AB7,#D4537E);
+        -webkit-background-clip:text; -webkit-text-fill-color:transparent;
     }
-    .stress-box {
-        padding: 1rem 1.4rem; border-radius: 12px;
-        border-left: 6px solid; margin-bottom: 1rem;
-    }
-    .box-low      { background:#EAF3DE; border-color:#639922; }
-    .box-moderate { background:#FAEEDA; border-color:#BA7517; }
-    .box-high     { background:#FAECE7; border-color:#993C1D; }
-    .box-critical { background:#FCEBEB; border-color:#A32D2D; }
+    .auth-title { font-size:1.4rem; font-weight:700; color:#534AB7; margin-bottom:0.2rem; }
+    .auth-sub   { font-size:0.88rem; color:#888; margin-bottom:1.4rem; }
+    .stress-box { padding:1rem 1.4rem; border-radius:12px; border-left:6px solid; margin-bottom:1rem; }
+    .box-low      { background:rgba(99,153,34,0.15);  border-color:#639922; color:inherit; }
+    .box-moderate { background:rgba(186,117,23,0.15); border-color:#BA7517; color:inherit; }
+    .box-high     { background:rgba(153,60,29,0.15);  border-color:#993C1D; color:inherit; }
+    .box-critical { background:rgba(163,45,45,0.15);  border-color:#A32D2D; color:inherit; }
     .tip-box {
-        background:#f4f2ff; border-left:4px solid #534AB7;
-        border-radius:0 8px 8px 0; padding:0.7rem 1rem;
-        margin-bottom:0.5rem; font-size:0.92rem;
+        background:rgba(83,74,183,0.12);
+        border-left:4px solid #7F77DD;
+        border-radius:0 8px 8px 0;
+        padding:0.75rem 1rem;
+        margin-bottom:0.5rem;
+        font-size:0.92rem;
+        color:inherit;
     }
+    .tip-box strong { color:#AFA9EC; }
     .goal-card {
-        background:#fff; border:0.5px solid #e0e0e0;
+        background:rgba(255,255,255,0.05);
+        border:0.5px solid rgba(255,255,255,0.12);
         border-radius:12px; padding:1rem 1.2rem; margin-bottom:0.6rem;
+        color:inherit;
     }
-    .goal-title { font-size:0.85rem; font-weight:600; color:#444; margin-bottom:6px; }
+    .goal-title { font-size:0.85rem; font-weight:600; color:inherit; opacity:0.75; margin-bottom:6px; }
     .streak-badge {
-        display:inline-block; padding:2px 10px;
-        border-radius:20px; font-size:0.78rem; font-weight:600;
-        background:#EAF3DE; color:#3B6D11; margin-left:8px;
+        display:inline-block; padding:2px 10px; border-radius:20px;
+        font-size:0.78rem; font-weight:600;
+        background:rgba(99,153,34,0.2); color:#97C459; margin-left:8px;
     }
-    .streak-zero { background:#f0f0f0; color:#888; }
+    .streak-zero { background:rgba(128,128,128,0.15); color:#888; }
+    .user-chip {
+        display:inline-block; background:rgba(83,74,183,0.2); color:#AFA9EC;
+        border-radius:20px; padding:3px 12px; font-size:0.85rem; font-weight:600;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# ─── Constants ───────────────────────────────────────────────────────────────
+# ═════════════════════════════════════════════════════════════════════════════
+# DATABASE LAYER
+# ═════════════════════════════════════════════════════════════════════════════
 
-LABELS  = ['Low', 'Moderate', 'High', 'Critical']
-COLORS  = {'Low':'#639922','Moderate':'#BA7517','High':'#993C1D','Critical':'#A32D2D'}
-EMOJIS  = {'Low':'😊','Moderate':'😐','High':'😟','Critical':'😰'}
-MODELS_DIR = os.path.join(os.path.dirname(__file__), '..', 'models')
+BASE_DIR = os.path.join(os.path.dirname(__file__), '..')
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+os.makedirs(DATA_DIR, exist_ok=True)
+DB_PATH  = os.path.join(DATA_DIR, 'stress_monitor.db')
 
-FEATURES = [
-    'study_hours', 'assignments_pending', 'exam_pressure',
-    'academic_performance', 'sleep_hours', 'exercise_days_per_week',
-    'social_interactions_per_week', 'screen_time_hours',
-    'anxiety_level', 'financial_stress', 'family_support',
-    'peer_pressure', 'extracurricular_activities', 'relationship_issues',
-]
 
-# ─── Load ML Model ───────────────────────────────────────────────────────────
+def get_db():
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            username      TEXT    UNIQUE NOT NULL,
+            password_hash TEXT    NOT NULL,
+            created_at    TEXT    NOT NULL
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id       INTEGER NOT NULL,
+            timestamp     TEXT    NOT NULL,
+            day_label     TEXT,
+            stress_score  REAL,
+            stress_level  TEXT,
+            sleep         REAL,
+            study         REAL,
+            screen        REAL,
+            anxiety       INTEGER,
+            exercise      INTEGER,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS goals (
+            user_id       INTEGER PRIMARY KEY,
+            goal_sleep    REAL    DEFAULT 8.0,
+            goal_study    REAL    DEFAULT 8.0,
+            goal_exercise INTEGER DEFAULT 4,
+            goal_screen   REAL    DEFAULT 4.0,
+            updated_at    TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+
+init_db()
+
+# ── Auth helpers ──────────────────────────────────────────────────────────────
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode()).hexdigest()
+
+
+def create_user(username: str, password: str):
+    if len(username.strip()) < 3:
+        return False, "Username must be at least 3 characters."
+    if len(password) < 6:
+        return False, "Password must be at least 6 characters."
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO users (username, password_hash, created_at) VALUES (?,?,?)",
+            (username.strip().lower(), hash_password(password),
+             datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        )
+        conn.commit()
+        return True, "Account created successfully!"
+    except sqlite3.IntegrityError:
+        return False, "Username already taken. Please choose another."
+    finally:
+        conn.close()
+
+
+def verify_user(username: str, password: str):
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM users WHERE username=? AND password_hash=?",
+        (username.strip().lower(), hash_password(password))
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+# ── Session data helpers ──────────────────────────────────────────────────────
+
+def save_session(user_id, stress_score, stress_level,
+                 sleep, study, screen, anxiety, exercise):
+    conn = get_db()
+    conn.execute("""
+        INSERT INTO sessions
+            (user_id,timestamp,day_label,stress_score,stress_level,
+             sleep,study,screen,anxiety,exercise)
+        VALUES (?,?,?,?,?,?,?,?,?,?)
+    """, (
+        user_id,
+        datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        datetime.datetime.now().strftime("%a %d %b"),
+        stress_score, stress_level,
+        sleep, study, screen, anxiety, exercise
+    ))
+    conn.commit()
+    conn.close()
+
+
+def load_sessions(user_id) -> pd.DataFrame:
+    conn = get_db()
+    df = pd.read_sql_query(
+        "SELECT * FROM sessions WHERE user_id=? ORDER BY id ASC",
+        conn, params=(user_id,)
+    )
+    conn.close()
+    return df
+
+
+# ── Goals helpers ─────────────────────────────────────────────────────────────
+
+def load_goals(user_id) -> dict:
+    conn = get_db()
+    row = conn.execute("SELECT * FROM goals WHERE user_id=?", (user_id,)).fetchone()
+    conn.close()
+    return dict(row) if row else {"goal_sleep":8.0,"goal_study":8.0,
+                                   "goal_exercise":4,"goal_screen":4.0}
+
+
+def save_goals_db(user_id, goal_sleep, goal_study, goal_exercise, goal_screen):
+    conn = get_db()
+    conn.execute("""
+        INSERT INTO goals (user_id,goal_sleep,goal_study,goal_exercise,goal_screen,updated_at)
+        VALUES (?,?,?,?,?,?)
+        ON CONFLICT(user_id) DO UPDATE SET
+            goal_sleep=excluded.goal_sleep, goal_study=excluded.goal_study,
+            goal_exercise=excluded.goal_exercise, goal_screen=excluded.goal_screen,
+            updated_at=excluded.updated_at
+    """, (user_id, goal_sleep, goal_study, goal_exercise, goal_screen,
+          datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
+    conn.commit()
+    conn.close()
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# AUTH PAGE
+# ═════════════════════════════════════════════════════════════════════════════
+
+def show_auth_page():
+    st.markdown("""
+    <div style="text-align:center;padding:2.5rem 0 1rem;">
+        <div style="font-size:3rem;">🧠</div>
+        <div class="main-title" style="text-align:center;display:block;font-size:2.2rem;">
+            Student Stress Monitor
+        </div>
+        <div style="color:#888;font-size:0.95rem;margin-top:0.4rem;">
+            AI-powered stress tracking • personalized tips • goal setting
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_l, col_m, col_r = st.columns([1, 1.1, 1])
+    with col_m:
+        mode = st.radio("", ["🔑 Login", "✨ Create account"],
+                        horizontal=True, label_visibility="collapsed")
+        st.markdown("")
+
+        if mode == "🔑 Login":
+            with st.form("login_form"):
+                st.markdown('<div class="auth-title">Welcome back 👋</div>'
+                            '<div class="auth-sub">Sign in to your account to continue</div>',
+                            unsafe_allow_html=True)
+                username = st.text_input("Username", placeholder="enter your username")
+                password = st.text_input("Password", type="password",
+                                         placeholder="enter your password")
+                submitted = st.form_submit_button("Sign in →",
+                                                  use_container_width=True,
+                                                  type="primary")
+                if submitted:
+                    if not username or not password:
+                        st.error("Please fill in both fields.")
+                    else:
+                        user = verify_user(username, password)
+                        if user:
+                            st.session_state["user"] = user
+                            st.rerun()
+                        else:
+                            st.error("❌ Incorrect username or password.")
+
+        else:
+            with st.form("signup_form"):
+                st.markdown('<div class="auth-title">Create your account ✨</div>'
+                            '<div class="auth-sub">Start tracking your stress today — free & private</div>',
+                            unsafe_allow_html=True)
+                new_username = st.text_input("Choose a username",
+                                             placeholder="at least 3 characters")
+                new_password = st.text_input("Choose a password", type="password",
+                                             placeholder="at least 6 characters")
+                confirm_pw   = st.text_input("Confirm password", type="password",
+                                             placeholder="repeat your password")
+                submitted = st.form_submit_button("Create account →",
+                                                  use_container_width=True,
+                                                  type="primary")
+                if submitted:
+                    if not new_username or not new_password or not confirm_pw:
+                        st.error("Please fill in all fields.")
+                    elif new_password != confirm_pw:
+                        st.error("❌ Passwords don't match.")
+                    else:
+                        ok, msg = create_user(new_username, new_password)
+                        if ok:
+                            st.success(f"✅ {msg} You can now sign in.")
+                        else:
+                            st.error(f"❌ {msg}")
+
+    st.markdown("""
+    <div style="text-align:center;color:#ccc;font-size:0.78rem;margin-top:2.5rem;">
+        🔒 Passwords are hashed with SHA-256 and never stored in plain text
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# CONSTANTS & ML MODEL
+# ═════════════════════════════════════════════════════════════════════════════
+
+LABELS     = ['Low','Moderate','High','Critical']
+COLORS     = {'Low':'#639922','Moderate':'#BA7517','High':'#993C1D','Critical':'#A32D2D'}
+EMOJIS     = {'Low':'😊','Moderate':'😐','High':'😟','Critical':'😰'}
+MODELS_DIR = os.path.join(BASE_DIR, 'models')
+
 
 @st.cache_resource
 def load_model():
-    mp = os.path.join(MODELS_DIR, 'model.pkl')
-    sp = os.path.join(MODELS_DIR, 'scaler.pkl')
-    tp = os.path.join(MODELS_DIR, 'meta.pkl')
-    if not os.path.exists(mp):
-        return None, None, None
-    with open(mp, 'rb') as f: model  = pickle.load(f)
-    with open(sp, 'rb') as f: scaler = pickle.load(f)
-    with open(tp, 'rb') as f: meta   = pickle.load(f)
+    mp = os.path.join(MODELS_DIR,'model.pkl')
+    sp = os.path.join(MODELS_DIR,'scaler.pkl')
+    tp = os.path.join(MODELS_DIR,'meta.pkl')
+    if not os.path.exists(mp): return None,None,None
+    with open(mp,'rb') as f: model  = pickle.load(f)
+    with open(sp,'rb') as f: scaler = pickle.load(f)
+    with open(tp,'rb') as f: meta   = pickle.load(f)
     return model, scaler, meta
 
-model, scaler, meta = load_model()
-MODEL_READY = model is not None
 
-# ─── Load / Init history CSV (your original data store) ──────────────────────
-
-file_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'stress_data.csv')
-os.makedirs(os.path.dirname(file_path), exist_ok=True)
-
-HISTORY_COLS = ["Timestamp", "Day", "StressScore", "StressLevel",
-                "Sleep", "Study", "Screen", "Anxiety", "Exercise"]
-if not os.path.exists(file_path):
-    pd.DataFrame(columns=HISTORY_COLS).to_csv(file_path, index=False)
-
-history_df = pd.read_csv(file_path)
-for col in HISTORY_COLS:
-    if col not in history_df.columns:
-        history_df[col] = np.nan
-
-# ─── Load / Init Goals CSV ───────────────────────────────────────────────────
-
-goals_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'goals.csv')
-GOALS_COLS = ["goal_sleep", "goal_study", "goal_exercise", "goal_screen"]
-GOALS_DEFAULTS = {"goal_sleep": 8.0, "goal_study": 8.0,
-                  "goal_exercise": 4, "goal_screen": 4.0}
-
-if not os.path.exists(goals_path):
-    pd.DataFrame([GOALS_DEFAULTS]).to_csv(goals_path, index=False)
-
-goals_df = pd.read_csv(goals_path)
-for col in GOALS_COLS:
-    if col not in goals_df.columns:
-        goals_df[col] = GOALS_DEFAULTS[col]
-
-saved_goals = goals_df.iloc[-1].to_dict()
-
-
-def compute_streaks(hdf, goal_sleep, goal_study, goal_exercise, goal_screen):
-    """Return streak counts (consecutive days goal was met, most recent run)."""
-    streaks = {"sleep": 0, "study": 0, "exercise": 0, "screen": 0}
-    if hdf.empty:
-        return streaks
-    for col, goal_col, direction in [
-        ("Sleep",    goal_sleep,    "gte"),
-        ("Study",    goal_study,    "lte"),
-        ("Exercise", goal_exercise, "gte"),
-        ("Screen",   goal_screen,   "lte"),
+def compute_streaks(hdf, g_sleep, g_study, g_exercise, g_screen):
+    streaks = {"sleep":0,"study":0,"exercise":0,"screen":0}
+    if hdf.empty: return streaks
+    for col,goal_val,direction,key in [
+        ("sleep",g_sleep,"gte","sleep"),("study",g_study,"lte","study"),
+        ("exercise",g_exercise,"gte","exercise"),("screen",g_screen,"lte","screen"),
     ]:
-        if col not in hdf.columns:
-            continue
-        vals = pd.to_numeric(hdf[col], errors='coerce').dropna().tolist()
-        streak = 0
+        if col not in hdf.columns: continue
+        vals = pd.to_numeric(hdf[col],errors='coerce').dropna().tolist()
+        s = 0
         for v in reversed(vals):
-            met = (v >= goal_col) if direction == "gte" else (v <= goal_col)
-            if met:
-                streak += 1
-            else:
-                break
-        key = col.lower()
-        streaks[key] = streak
+            if (v>=goal_val if direction=="gte" else v<=goal_val): s+=1
+            else: break
+        streaks[key] = s
     return streaks
 
 
-def week_progress(hdf, goal_sleep, goal_study, goal_exercise, goal_screen):
-    """Return % of last-7-session days each goal was met."""
-    pct = {"sleep": 0, "study": 0, "exercise": 0, "screen": 0}
-    if hdf.empty:
-        return pct
+def week_progress(hdf, g_sleep, g_study, g_exercise, g_screen):
+    pct = {"sleep":0,"study":0,"exercise":0,"screen":0}
+    if hdf.empty: return pct
     recent = hdf.tail(7)
-    checks = [
-        ("Sleep",    goal_sleep,    "gte", "sleep"),
-        ("Study",    goal_study,    "lte", "study"),
-        ("Exercise", goal_exercise, "gte", "exercise"),
-        ("Screen",   goal_screen,   "lte", "screen"),
-    ]
-    for col, goal_val, direction, key in checks:
-        if col not in recent.columns:
-            continue
-        vals = pd.to_numeric(recent[col], errors='coerce').dropna()
-        if len(vals) == 0:
-            continue
-        met = (vals >= goal_val) if direction == "gte" else (vals <= goal_val)
-        pct[key] = int(met.sum() / len(vals) * 100)
+    for col,goal_val,direction,key in [
+        ("sleep",g_sleep,"gte","sleep"),("study",g_study,"lte","study"),
+        ("exercise",g_exercise,"gte","exercise"),("screen",g_screen,"lte","screen"),
+    ]:
+        if col not in recent.columns: continue
+        vals = pd.to_numeric(recent[col],errors='coerce').dropna()
+        if len(vals)==0: continue
+        met = (vals>=goal_val) if direction=="gte" else (vals<=goal_val)
+        pct[key] = int(met.sum()/len(vals)*100)
     return pct
 
-# ─── Header ──────────────────────────────────────────────────────────────────
 
-st.markdown('<div class="main-title">🧠 Student Stress Monitor Dashboard</div>', unsafe_allow_html=True)
-st.caption("AI-powered stress prediction • personalized tips • trend tracking")
+# ═════════════════════════════════════════════════════════════════════════════
+# MAIN APP
+# ═════════════════════════════════════════════════════════════════════════════
 
-if MODEL_READY:
-    acc = meta.get('accuracy', 0)
-    c1, c2, c3 = st.columns(3)
-    c1.metric("ML Model", meta.get('best_model', 'Loaded'))
-    c2.metric("Model Accuracy", f"{acc*100:.1f}%")
-    c3.metric("Sessions logged", str(len(history_df)))
-else:
-    st.warning("⚠️ ML model not found. Run `python src/train_model.py` to enable AI predictions. Basic scoring is active.")
+def show_main_app(user: dict):
+    model, scaler, meta = load_model()
+    MODEL_READY = model is not None
+    user_id  = user["id"]
+    username = user["username"]
 
-st.divider()
-
-# ─── Sidebar ─────────────────────────────────────────────────────────────────
-
-with st.sidebar:
-    st.header("📥 Enter Today's Data")
-
-    st.markdown("#### 📚 Academic")
-    study        = st.slider("Study hours / day",       0.0, 16.0, 6.0, 0.5)
-    assignments  = st.slider("Assignments pending",     0,   15,   3)
-    exam         = st.slider("Exam pressure (1–10)",    1,   10,   5)
-    performance  = st.slider("Academic performance (1–10)", 1, 10, 7)
-
-    st.markdown("#### 🏃 Lifestyle")
-    sleep        = st.slider("Sleep hours / night",     2.0, 12.0, 7.0, 0.5)
-    exercise     = st.slider("Exercise days / week",    0,   7,    3)
-    social       = st.slider("Social interactions / week", 0, 20,  5)
-    screen       = st.slider("Screen time hours / day", 0.0, 16.0, 4.0, 0.5)
-
-    st.markdown("#### 🧠 Mental & Social")
-    anxiety      = st.slider("Anxiety level (1–10)",    1,   10,   4)
-    finance      = st.slider("Financial stress (1–10)", 1,   10,   3)
-    family       = st.slider("Family support (1–10)",   1,   10,   7)
-    peer         = st.slider("Peer pressure (1–10)",    1,   10,   4)
-    extra        = st.selectbox("Extracurricular activities", [0,1,2],
-                                format_func=lambda x: ['None','1–2 activities','3+ activities'][x])
-    rel          = st.selectbox("Relationship situation", [0,1,2],
-                                format_func=lambda x: ['Single / N/A','Stable relationship','Relationship issues'][x])
-
-    st.divider()
-    save_btn = st.button("💾 Save Today's Entry", use_container_width=True, type="primary")
-
-# ─── Stress Computation ───────────────────────────────────────────────────────
-
-# Always compute a rule-based score (your original logic, extended)
-raw = (
-    max(0, study - 8) * 3.5
-    + assignments * 2.5
-    + (exam - 1) * 5.0
-    + max(0, 7 - sleep) * 4.0
-    + max(0, 5 - exercise) * 2.0
-    + max(0, 8 - social) * 1.5
-    + max(0, screen - 4) * 2.0
-    + (anxiety - 1) * 4.5
-    + (finance - 1) * 3.0
-    - (family - 1) * 2.5
-    - (performance - 1) * 2.0
-    + (peer - 1) * 2.5
-    + (5 if extra == 0 else 0)
-    + (8 if rel == 2 else 0)
-)
-stress_score = int(np.clip(raw, 0, 100))
-
-# ML prediction (if model loaded)
-if MODEL_READY:
-    inp = np.array([[study, assignments, exam, performance,
-                     sleep, exercise, social, screen,
-                     anxiety, finance, family, peer, extra, rel]])
-    inp_sc     = scaler.transform(inp)
-    pred_class = int(model.predict(inp_sc)[0])
-    pred_proba = model.predict_proba(inp_sc)[0]
-    level_name = LABELS[pred_class]
-else:
-    # Fallback to your original 3-tier rule
-    pred_proba = None
-    if stress_score > 74:   level_name = 'Critical'
-    elif stress_score > 54: level_name = 'High'
-    elif stress_score > 29: level_name = 'Moderate'
-    else:                   level_name = 'Low'
-
-level_color = COLORS[level_name]
-level_emoji = EMOJIS[level_name]
-
-# ─── Save entry ──────────────────────────────────────────────────────────────
-
-if save_btn:
-    new_row = {
-        "Timestamp":   datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "Day":         datetime.datetime.now().strftime("%a %d %b"),
-        "StressScore": stress_score,
-        "StressLevel": level_name,
-        "Sleep":       sleep,
-        "Study":       study,
-        "Screen":      screen,
-        "Anxiety":     anxiety,
-        "Exercise":    exercise,
-    }
-    history_df = pd.concat([history_df, pd.DataFrame([new_row])], ignore_index=True)
-    history_df.to_csv(file_path, index=False)
-    st.success("✅ Data Saved Successfully!")
-    st.rerun()
-
-# ─── Main Tabs ────────────────────────────────────────────────────────────────
-
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["📊 Stress Result", "🔍 Factor Analysis", "💡 Management Tips", "📈 My History", "🎯 My Goals"])
-
-# ══════════════════════════════════════════════════════════════
-# TAB 1 — Stress Result
-# ══════════════════════════════════════════════════════════════
-with tab1:
-    col_left, col_right = st.columns([1.4, 1])
-
-    with col_left:
-        box_css = level_name.lower()
-        st.markdown(f"""
-        <div class="stress-box box-{box_css}">
-            <h2 style="margin:0;color:{level_color};">{level_emoji} {level_name} Stress</h2>
-            <p style="margin:0.4rem 0 0;font-size:1.05rem;">
-                Stress score: <strong>{stress_score} / 100</strong>
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if MODEL_READY and pred_proba is not None:
-            st.markdown("#### Confidence across levels")
-            for lbl, p in zip(LABELS, pred_proba):
-                ca, cb = st.columns([3, 1])
-                ca.progress(float(p), text=lbl)
-                cb.write(f"**{p*100:.1f}%**")
-        else:
-            st.markdown("#### Score breakdown")
-            st.write(f"- Sleep deficit: `{max(0, round(7-sleep,1))}h below target`")
-            st.write(f"- Study overload: `{max(0, round(study-8,1))}h above 8h`")
-            st.write(f"- Screen excess: `{max(0, round(screen-4,1))}h above 4h`")
-
-    with col_right:
-        if MODEL_READY and pred_proba is not None:
-            fig, ax = plt.subplots(figsize=(4, 4))
-            ax.pie(pred_proba,
-                   labels=LABELS,
-                   colors=['#639922','#EF9F27','#D85A30','#E24B4A'],
-                   autopct='%1.1f%%', startangle=140,
-                   wedgeprops={'linewidth':1,'edgecolor':'white'})
-            ax.set_title('Probability Distribution', fontsize=11, pad=8)
-            st.pyplot(fig, use_container_width=True)
-            plt.close()
-        else:
-            # Simple gauge using bar
-            fig, ax = plt.subplots(figsize=(4, 1.5))
-            ax.barh(['Stress'], [stress_score], color=level_color, height=0.5)
-            ax.barh(['Stress'], [100 - stress_score], left=[stress_score],
-                    color='#e8e8e8', height=0.5)
-            ax.set_xlim(0, 100)
-            ax.set_xlabel('Score / 100')
-            ax.set_title(f'Score: {stress_score}', fontsize=12)
-            ax.axis('off')
-            st.pyplot(fig, use_container_width=True)
-            plt.close()
-
-    st.divider()
-    st.markdown("#### Quick health snapshot")
-    m1, m2, m3, m4 = st.columns(4)
-    sleep_status = "Optimal ✅" if sleep >= 8 else f"-{8-sleep:.1f}h ⚠️"
-    study_load   = ["Light","Moderate","Heavy","Extreme"][
-                    min(3, int(study // 4))] if study <= 16 else "Extreme"
-    recovery     = int(((exercise/7)*0.4 + (sleep/10)*0.4 + (social/20)*0.2) * 100)
-    burnout      = min(100, int(stress_score*0.6 + max(0,study-8)*4 + max(0,10-sleep)*3))
-    m1.metric("Sleep status",    sleep_status)
-    m2.metric("Study load",      study_load)
-    m3.metric("Recovery score",  f"{recovery}%")
-    m4.metric("Burnout risk",    f"{burnout}/100")
-
-# ══════════════════════════════════════════════════════════════
-# TAB 2 — Factor Analysis
-# ══════════════════════════════════════════════════════════════
-with tab2:
-    st.markdown("#### Which factors are driving your stress?")
-
-    factor_scores = {
-        "Academic load":    min(100, int(study/16*50 + assignments/15*30 + exam/10*20)),
-        "Sleep deficit":    min(100, int(max(0, 8-sleep)/6*100)),
-        "Anxiety":          int(anxiety/10*100),
-        "Financial strain": int(finance/10*100),
-        "Social isolation": min(100, int(max(0,10-family)/9*70 + max(0,8-social)/8*30)),
-        "Peer pressure":    int(peer/10*100),
-        "Screen overuse":   min(100, int(max(0,screen-4)/12*100)),
-        "Exercise deficit": min(100, int(max(0,5-exercise)/5*100)),
-    }
-    sorted_f = sorted(factor_scores.items(), key=lambda x: x[1], reverse=True)
-
-    fig, ax = plt.subplots(figsize=(8, 5))
-    names  = [f[0] for f in sorted_f]
-    vals   = [f[1] for f in sorted_f]
-    clrs   = ['#A32D2D' if v>=75 else '#993C1D' if v>=55
-              else '#BA7517' if v>=30 else '#639922' for v in vals]
-    bars = ax.barh(names, vals, color=clrs, edgecolor='white', linewidth=0.5)
-    for bar, v in zip(bars, vals):
-        ax.text(v+2, bar.get_y()+bar.get_height()/2, str(v), va='center', fontsize=10)
-    ax.axvline(55, ls='--', lw=1, color='#BA7517', alpha=0.6, label='High threshold')
-    ax.axvline(75, ls='--', lw=1, color='#A32D2D', alpha=0.6, label='Critical threshold')
-    ax.set_xlim(0, 115)
-    ax.set_xlabel("Stress contribution score")
-    ax.set_title("Stress Factor Breakdown", fontsize=13)
-    ax.legend(fontsize=9)
-    plt.tight_layout()
-    st.pyplot(fig, use_container_width=True)
-    plt.close()
-
-    st.markdown("#### Your inputs at a glance")
-    snap_cols = st.columns(4)
-    snap = [
-        ("Study hrs/day", f"{study}h"),
-        ("Sleep hrs/night", f"{sleep}h"),
-        ("Anxiety", f"{anxiety}/10"),
-        ("Exercise days", str(exercise)),
-        ("Assignments", str(assignments)),
-        ("Financial stress", f"{finance}/10"),
-        ("Family support", f"{family}/10"),
-        ("Screen time", f"{screen}h"),
-    ]
-    for i, (k, v) in enumerate(snap):
-        snap_cols[i % 4].metric(k, v)
-
-# ══════════════════════════════════════════════════════════════
-# TAB 3 — Management Tips
-# ══════════════════════════════════════════════════════════════
-with tab3:
-    st.markdown("#### Personalized recommendations based on your inputs")
-
-    tips = []
-    if sleep < 7:
-        tips.append(("😴 Sleep hygiene",
-            f"You're getting {sleep}h — below the 7–9h ideal. Set a consistent bedtime, "
-            "cut caffeine after 3 PM, and go screen-free 30 min before bed."))
-    if study > 8:
-        tips.append(("📚 Study smarter",
-            f"Studying {study}h/day risks burnout. Try the Pomodoro method "
-            "(25 min focus, 5 min break). Schedule a hard stop time each day."))
-    if exercise < 3:
-        tips.append(("🏃 Get moving",
-            "Less than 3 days of exercise/week amplifies stress. Even a 20-min "
-            "walk daily reduces cortisol by ~26%. Schedule it like a class."))
-    if anxiety > 6:
-        tips.append(("🧘 Manage anxiety",
-            f"Anxiety at {anxiety}/10 is significant. Try box breathing: "
-            "inhale 4s → hold 4s → exhale 4s → hold 4s. Repeat 4 times."))
-    if social < 4:
-        tips.append(("👥 Social connection",
-            "Low social interaction increases stress. Even one meaningful conversation "
-            "daily helps. Consider a study group or campus club."))
-    if screen > 6:
-        tips.append(("📱 Digital detox",
-            f"{screen}h/day of screens disrupts sleep and focus. Try app timers "
-            "and a 'no-phone hour' before bed."))
-    if finance > 7:
-        tips.append(("💰 Financial pressure",
-            "Talk to your institution's student welfare office — scholarships, "
-            "emergency funds, or part-time work may be available."))
-    if assignments > 8:
-        tips.append(("📝 Task overload",
-            f"{assignments} pending assignments is stressful. Use the Eisenhower matrix "
-            "(urgent × important) and tackle one high-priority item each morning."))
-    if family < 4:
-        tips.append(("❤️ Build your support net",
-            "Low family support increases vulnerability. Campus counselors, "
-            "peer mentors, and student wellbeing groups can help fill that gap."))
-    if peer > 7:
-        tips.append(("🤝 Peer pressure",
-            "High peer pressure drains energy. Practice saying no assertively. "
-            "Spend time with people who motivate rather than pressure you."))
-    if not tips:
-        tips.append(("🌟 You're doing great!",
-            "Your stress indicators look balanced. Keep your current routines "
-            "and do weekly check-ins to catch any early changes."))
-
-    for cat, tip in tips:
-        st.markdown(f'<div class="tip-box"><strong>{cat}</strong><br>{tip}</div>',
+    # ── Header ───────────────────────────────────────────────────────────────
+    h1, h2 = st.columns([5,1])
+    with h1:
+        st.markdown('<div class="main-title">🧠 Student Stress Monitor</div>',
                     unsafe_allow_html=True)
+        st.caption("AI-powered stress prediction • personalized tips • trend tracking")
+    with h2:
+        st.markdown(f'<div style="text-align:right;padding-top:0.5rem;">'
+                    f'<span class="user-chip">👤 {username}</span></div>',
+                    unsafe_allow_html=True)
+        if st.button("Sign out", use_container_width=True):
+            del st.session_state["user"]
+            st.rerun()
+
+    history_df  = load_sessions(user_id)
+    saved_goals = load_goals(user_id)
+
+    if MODEL_READY:
+        acc = meta.get('accuracy',0)
+        c1,c2,c3 = st.columns(3)
+        c1.metric("ML Model",       meta.get('best_model','Loaded'))
+        c2.metric("Model Accuracy", f"{acc*100:.1f}%")
+        c3.metric("Sessions logged",str(len(history_df)))
+    else:
+        st.warning("⚠️ ML model not found. Run `python src/train_model.py` to enable AI predictions.")
 
     st.divider()
-    st.markdown("#### 🗓️ 7-day recovery plan")
-    plan = [
-        ("Day 1", "Set a consistent sleep time and stick to it all week."),
-        ("Day 2", "Write all pending tasks down. Cross off one small thing today."),
-        ("Day 3", "Go for a 20-min walk — no phone, no earphones."),
-        ("Day 4", "Call or message one friend or family member you trust."),
-        ("Day 5", "Do one 25-min Pomodoro study block. Note your focus level."),
-        ("Day 6", "Spend 10 min on box breathing or a simple meditation."),
-        ("Day 7", "Review the week: what helped? Plan to repeat those habits."),
-    ]
-    for day, action in plan:
-        st.checkbox(f"**{day}** — {action}", key=f"plan_{day}")
 
-# ══════════════════════════════════════════════════════════════
-# TAB 4 — History (your original charts, enhanced)
-# ══════════════════════════════════════════════════════════════
-with tab4:
-    st.markdown("#### Your stress history")
+    # ── Sidebar ───────────────────────────────────────────────────────────────
+    with st.sidebar:
+        st.markdown(f"### 👤 {username}")
+        st.markdown("---")
+        st.header("📥 Enter Today's Data")
 
-    if history_df.empty or history_df['StressScore'].dropna().empty:
-        st.info("No history yet. Fill in today's data and hit 💾 Save.")
+        st.markdown("#### 📚 Academic")
+        study       = st.slider("Study hours / day",           0.0,16.0,6.0,0.5)
+        assignments = st.slider("Assignments pending",          0,  15,  3)
+        exam        = st.slider("Exam pressure (1–10)",         1,  10,  5)
+        performance = st.slider("Academic performance (1–10)",  1,  10,  7)
+
+        st.markdown("#### 🏃 Lifestyle")
+        sleep    = st.slider("Sleep hours / night",             2.0,12.0,7.0,0.5)
+        exercise = st.slider("Exercise days / week",            0,  7,   3)
+        social   = st.slider("Social interactions / week",      0,  20,  5)
+        screen   = st.slider("Screen time hours / day",         0.0,16.0,4.0,0.5)
+
+        st.markdown("#### 🧠 Mental & Social")
+        anxiety  = st.slider("Anxiety level (1–10)",            1,  10,  4)
+        finance  = st.slider("Financial stress (1–10)",         1,  10,  3)
+        family   = st.slider("Family support (1–10)",           1,  10,  7)
+        peer     = st.slider("Peer pressure (1–10)",            1,  10,  4)
+        extra    = st.selectbox("Extracurricular activities",[0,1,2],
+                    format_func=lambda x:['None','1–2 activities','3+ activities'][x])
+        rel      = st.selectbox("Relationship situation",[0,1,2],
+                    format_func=lambda x:['Single / N/A','Stable relationship','Relationship issues'][x])
+
+        st.divider()
+        save_btn = st.button("💾 Save Today's Entry",
+                             use_container_width=True, type="primary")
+
+    # ── Stress computation ─────────────────────────────────────────────────────
+    raw = (
+        max(0,study-8)*3.5 + assignments*2.5 + (exam-1)*5.0
+        + max(0,7-sleep)*4.0 + max(0,5-exercise)*2.0
+        + max(0,8-social)*1.5 + max(0,screen-4)*2.0
+        + (anxiety-1)*4.5 + (finance-1)*3.0
+        - (family-1)*2.5 - (performance-1)*2.0 + (peer-1)*2.5
+        + (5 if extra==0 else 0) + (8 if rel==2 else 0)
+    )
+    stress_score = int(np.clip(raw,0,100))
+
+    if MODEL_READY:
+        inp = np.array([[study,assignments,exam,performance,
+                         sleep,exercise,social,screen,
+                         anxiety,finance,family,peer,extra,rel]])
+        inp_sc     = scaler.transform(inp)
+        pred_class = int(model.predict(inp_sc)[0])
+        pred_proba = model.predict_proba(inp_sc)[0]
+        level_name = LABELS[pred_class]
     else:
-        hdf = history_df.dropna(subset=['StressScore']).copy()
-        hdf['StressScore'] = pd.to_numeric(hdf['StressScore'], errors='coerce')
-        hdf['Sleep']       = pd.to_numeric(hdf['Sleep'],       errors='coerce')
+        pred_proba = None
+        if stress_score>74:   level_name='Critical'
+        elif stress_score>54: level_name='High'
+        elif stress_score>29: level_name='Moderate'
+        else:                 level_name='Low'
 
-        # Summary metrics
-        s1, s2, s3, s4 = st.columns(4)
-        s1.metric("Sessions logged",  str(len(hdf)))
-        s2.metric("Avg stress score", f"{hdf['StressScore'].mean():.0f}")
-        s3.metric("Avg sleep",        f"{hdf['Sleep'].mean():.1f}h")
-        s4.metric("Last level",       str(hdf['StressLevel'].iloc[-1]) if 'StressLevel' in hdf.columns else "—")
+    level_color = COLORS[level_name]
+    level_emoji = EMOJIS[level_name]
 
-        # Line chart — stress over time (your original, now with enhanced data)
-        st.subheader("📈 Stress Score Over Time")
-        chart_df = hdf.set_index('Day')[['StressScore']].rename(columns={'StressScore':'Stress'})
-        st.line_chart(chart_df)
-
-        # Bar chart — sleep (your original)
-        st.subheader("📊 Sleep Hours Per Session")
-        st.bar_chart(hdf.set_index('Day')[['Sleep']])
-
-        # New: multi-feature trend
-        if 'Study' in hdf.columns and 'Screen' in hdf.columns:
-            st.subheader("📉 Study & Screen Time Trends")
-            trend_cols = [c for c in ['Study','Screen','Anxiety','Exercise'] if c in hdf.columns]
-            st.line_chart(hdf.set_index('Day')[trend_cols])
-
-        # New: stress level distribution
-        if 'StressLevel' in hdf.columns:
-            st.subheader("🥧 Stress Level Distribution")
-            level_counts = hdf['StressLevel'].value_counts()
-            fig2, ax2 = plt.subplots(figsize=(5, 4))
-            clrs = [COLORS.get(l, '#888') for l in level_counts.index]
-            ax2.pie(level_counts.values, labels=level_counts.index,
-                    colors=clrs, autopct='%1.0f%%', startangle=140,
-                    wedgeprops={'linewidth':1,'edgecolor':'white'})
-            ax2.set_title('Sessions by stress level', fontsize=12)
-            plt.tight_layout()
-            st.pyplot(fig2, use_container_width=True)
-            plt.close()
-
-        # Raw data table
-        with st.expander("📋 View raw data"):
-            st.dataframe(hdf, use_container_width=True)
-            csv = hdf.to_csv(index=False).encode()
-            st.download_button("⬇️ Download CSV", csv,
-                               "stress_history.csv", "text/csv")
-
-# ══════════════════════════════════════════════════════════════
-# TAB 5 — Goals
-# ══════════════════════════════════════════════════════════════
-with tab5:
-    st.markdown("#### 🎯 Set your weekly wellness goals")
-    st.caption("Goals are saved and tracked against every session you log. "
-               "Progress shows your last 7 sessions; streaks count consecutive days you hit the target.")
-
-    # ── Goal setters ──────────────────────────────────────────
-    with st.form("goals_form"):
-        st.markdown("##### Adjust your targets")
-        gc1, gc2 = st.columns(2)
-        with gc1:
-            g_sleep    = st.slider("😴 Sleep target (hrs/night, min)",
-                                   4.0, 10.0, float(saved_goals.get("goal_sleep", 8.0)), 0.5)
-            g_exercise = st.slider("🏃 Exercise target (days/week, min)",
-                                   1, 7, int(saved_goals.get("goal_exercise", 4)))
-        with gc2:
-            g_study    = st.slider("📚 Study limit (hrs/day, max)",
-                                   2.0, 14.0, float(saved_goals.get("goal_study", 8.0)), 0.5)
-            g_screen   = st.slider("📱 Screen time limit (hrs/day, max)",
-                                   1.0, 12.0, float(saved_goals.get("goal_screen", 4.0)), 0.5)
-
-        save_goals_btn = st.form_submit_button("💾 Save Goals", use_container_width=True)
-
-    if save_goals_btn:
-        new_goals = {"goal_sleep": g_sleep, "goal_study": g_study,
-                     "goal_exercise": g_exercise, "goal_screen": g_screen}
-        pd.DataFrame([new_goals]).to_csv(goals_path, index=False)
-        saved_goals = new_goals
-        st.success("✅ Goals saved!")
+    # ── Save entry ────────────────────────────────────────────────────────────
+    if save_btn:
+        save_session(user_id, stress_score, level_name,
+                     sleep, study, screen, anxiety, exercise)
+        st.success("✅ Entry saved!")
         st.rerun()
-    else:
-        g_sleep    = float(saved_goals.get("goal_sleep",    8.0))
-        g_study    = float(saved_goals.get("goal_study",    8.0))
-        g_exercise = int(saved_goals.get("goal_exercise",   4))
-        g_screen   = float(saved_goals.get("goal_screen",   4.0))
 
-    st.divider()
+    # ── Tabs ──────────────────────────────────────────────────────────────────
+    tab1,tab2,tab3,tab4,tab5 = st.tabs([
+        "📊 Stress Result","🔍 Factor Analysis",
+        "💡 Management Tips","📈 My History","🎯 My Goals"
+    ])
 
-    # ── Today vs goals ────────────────────────────────────────
-    st.markdown("##### How does today compare?")
+    # ══════════════════════════════════════════════════════════
+    # TAB 1 — Stress Result
+    # ══════════════════════════════════════════════════════════
+    with tab1:
+        col_left,col_right = st.columns([1.4,1])
+        with col_left:
+            st.markdown(f"""
+            <div class="stress-box box-{level_name.lower()}">
+                <h2 style="margin:0;color:{level_color};">{level_emoji} {level_name} Stress</h2>
+                <p style="margin:0.4rem 0 0;font-size:1.05rem;">
+                    Stress score: <strong>{stress_score} / 100</strong>
+                </p>
+            </div>""", unsafe_allow_html=True)
 
-    today_checks = [
-        ("😴 Sleep", sleep,    g_sleep,    "gte", "hrs tonight",  "hrs target"),
-        ("📚 Study", study,    g_study,    "lte", "hrs today",    "hrs max"),
-        ("🏃 Exercise", float(exercise), float(g_exercise), "gte", "days this week", "days target"),
-        ("📱 Screen", screen,  g_screen,   "lte", "hrs today",    "hrs limit"),
-    ]
+            if MODEL_READY and pred_proba is not None:
+                st.markdown("#### Confidence across levels")
+                for lbl,p in zip(LABELS,pred_proba):
+                    ca,cb = st.columns([3,1])
+                    ca.progress(float(p),text=lbl)
+                    cb.write(f"**{p*100:.1f}%**")
+            else:
+                st.markdown("#### Score breakdown")
+                st.write(f"- Sleep deficit: `{max(0,round(7-sleep,1))}h below target`")
+                st.write(f"- Study overload: `{max(0,round(study-8,1))}h above 8h`")
+                st.write(f"- Screen excess: `{max(0,round(screen-4,1))}h above 4h`")
 
-    col_a, col_b = st.columns(2)
-    for i, (label, actual, target, direction, unit_actual, unit_target) in enumerate(today_checks):
-        met = (actual >= target) if direction == "gte" else (actual <= target)
-        icon = "✅" if met else "❌"
-        status_txt = "Goal met!" if met else ("Need more" if direction == "gte" else "Too much")
-        delta_val  = round(actual - target, 1)
-        delta_str  = (f"+{delta_val}" if delta_val >= 0 else str(delta_val))
+        with col_right:
+            if MODEL_READY and pred_proba is not None:
+                fig,ax = plt.subplots(figsize=(4,4))
+                ax.pie(pred_proba, labels=LABELS,
+                       colors=['#639922','#EF9F27','#D85A30','#E24B4A'],
+                       autopct='%1.1f%%', startangle=140,
+                       wedgeprops={'linewidth':1,'edgecolor':'white'})
+                ax.set_title('Probability Distribution',fontsize=11,pad=8)
+                st.pyplot(fig,use_container_width=True); plt.close()
+            else:
+                fig,ax = plt.subplots(figsize=(4,1.5))
+                ax.barh(['Stress'],[stress_score],color=level_color,height=0.5)
+                ax.barh(['Stress'],[100-stress_score],left=[stress_score],
+                        color='#e8e8e8',height=0.5)
+                ax.set_xlim(0,100); ax.axis('off')
+                ax.set_title(f'Score: {stress_score}',fontsize=12)
+                st.pyplot(fig,use_container_width=True); plt.close()
 
-        card_col = col_a if i % 2 == 0 else col_b
-        with card_col:
+        st.divider()
+        st.markdown("#### Quick health snapshot")
+        m1,m2,m3,m4 = st.columns(4)
+        sleep_status = "Optimal ✅" if sleep>=8 else f"-{8-sleep:.1f}h ⚠️"
+        study_load   = ["Light","Moderate","Heavy","Extreme"][min(3,int(study//4))]
+        recovery     = int(((exercise/7)*0.4+(sleep/10)*0.4+(social/20)*0.2)*100)
+        burnout      = min(100,int(stress_score*0.6+max(0,study-8)*4+max(0,10-sleep)*3))
+        m1.metric("Sleep status",  sleep_status)
+        m2.metric("Study load",    study_load)
+        m3.metric("Recovery score",f"{recovery}%")
+        m4.metric("Burnout risk",  f"{burnout}/100")
+
+    # ══════════════════════════════════════════════════════════
+    # TAB 2 — Factor Analysis
+    # ══════════════════════════════════════════════════════════
+    with tab2:
+        st.markdown("#### Which factors are driving your stress?")
+        factor_scores = {
+            "Academic load":    min(100,int(study/16*50+assignments/15*30+exam/10*20)),
+            "Sleep deficit":    min(100,int(max(0,8-sleep)/6*100)),
+            "Anxiety":          int(anxiety/10*100),
+            "Financial strain": int(finance/10*100),
+            "Social isolation": min(100,int(max(0,10-family)/9*70+max(0,8-social)/8*30)),
+            "Peer pressure":    int(peer/10*100),
+            "Screen overuse":   min(100,int(max(0,screen-4)/12*100)),
+            "Exercise deficit": min(100,int(max(0,5-exercise)/5*100)),
+        }
+        sorted_f = sorted(factor_scores.items(),key=lambda x:x[1],reverse=True)
+        fig,ax = plt.subplots(figsize=(8,5))
+        names=[f[0] for f in sorted_f]; vals=[f[1] for f in sorted_f]
+        clrs=['#A32D2D' if v>=75 else '#993C1D' if v>=55
+              else '#BA7517' if v>=30 else '#639922' for v in vals]
+        bars = ax.barh(names,vals,color=clrs,edgecolor='white',linewidth=0.5)
+        for bar,v in zip(bars,vals):
+            ax.text(v+2,bar.get_y()+bar.get_height()/2,str(v),va='center',fontsize=10)
+        ax.axvline(55,ls='--',lw=1,color='#BA7517',alpha=0.6,label='High threshold')
+        ax.axvline(75,ls='--',lw=1,color='#A32D2D',alpha=0.6,label='Critical threshold')
+        ax.set_xlim(0,115); ax.set_xlabel("Stress contribution score")
+        ax.set_title("Stress Factor Breakdown",fontsize=13); ax.legend(fontsize=9)
+        plt.tight_layout(); st.pyplot(fig,use_container_width=True); plt.close()
+
+        st.markdown("#### Your inputs at a glance")
+        sc = st.columns(4)
+        snap=[("Study hrs/day",f"{study}h"),("Sleep hrs/night",f"{sleep}h"),
+              ("Anxiety",f"{anxiety}/10"),("Exercise days",str(exercise)),
+              ("Assignments",str(assignments)),("Financial stress",f"{finance}/10"),
+              ("Family support",f"{family}/10"),("Screen time",f"{screen}h")]
+        for i,(k,v) in enumerate(snap): sc[i%4].metric(k,v)
+
+    # ══════════════════════════════════════════════════════════
+    # TAB 3 — Management Tips
+    # ══════════════════════════════════════════════════════════
+    with tab3:
+        st.markdown("#### Personalized recommendations")
+        tips=[]
+        if sleep<7:       tips.append(("😴 Sleep hygiene",    f"You're getting {sleep}h — below the 7–9h ideal. Set a consistent bedtime, cut caffeine after 3 PM, go screen-free 30 min before bed."))
+        if study>8:       tips.append(("📚 Study smarter",    f"Studying {study}h/day risks burnout. Try Pomodoro (25 min focus, 5 min break). Schedule a hard stop time each day."))
+        if exercise<3:    tips.append(("🏃 Get moving",       "Less than 3 exercise days/week amplifies stress. Even a 20-min walk daily reduces cortisol by ~26%."))
+        if anxiety>6:     tips.append(("🧘 Manage anxiety",   f"Anxiety at {anxiety}/10 is significant. Try box breathing: inhale 4s → hold 4s → exhale 4s → hold 4s."))
+        if social<4:      tips.append(("👥 Social connection","Low social interaction increases stress. Even one meaningful conversation daily helps."))
+        if screen>6:      tips.append(("📱 Digital detox",    f"{screen}h/day screens disrupts sleep. Try app timers and a 'no-phone hour' before bed."))
+        if finance>7:     tips.append(("💰 Financial stress", "Talk to your institution's welfare office — scholarships, emergency funds or part-time work may be available."))
+        if assignments>8: tips.append(("📝 Task overload",    f"{assignments} pending items is stressful. Use the Eisenhower matrix and tackle one high-priority item each morning."))
+        if family<4:      tips.append(("❤️ Build support",   "Low family support increases vulnerability. Campus counselors and peer mentors can help."))
+        if peer>7:        tips.append(("🤝 Peer pressure",    "High peer pressure drains energy. Practice assertive communication and spend time with people who motivate you."))
+        if not tips:      tips.append(("🌟 You're doing great!","Your indicators look balanced. Keep your routines and do weekly check-ins to catch early changes."))
+
+        for cat,tip in tips:
+            st.markdown(f'<div class="tip-box"><strong>{cat}</strong><br>{tip}</div>',
+                        unsafe_allow_html=True)
+
+        st.divider()
+        st.markdown("#### 🗓️ 7-day recovery plan")
+        for day,action in [
+            ("Day 1","Set a consistent sleep time and stick to it all week."),
+            ("Day 2","Write all pending tasks down. Cross off one small thing today."),
+            ("Day 3","Go for a 20-min walk — no phone, no earphones."),
+            ("Day 4","Call or message one friend or family member you trust."),
+            ("Day 5","Do one 25-min Pomodoro study block. Note your focus level."),
+            ("Day 6","Spend 10 min on box breathing or a simple meditation."),
+            ("Day 7","Review the week: what helped? Plan to repeat those habits."),
+        ]:
+            st.checkbox(f"**{day}** — {action}", key=f"plan_{day}")
+
+    # ══════════════════════════════════════════════════════════
+    # TAB 4 — History
+    # ══════════════════════════════════════════════════════════
+    with tab4:
+        st.markdown(f"#### Your stress history — {username}")
+        if history_df.empty:
+            st.info("No history yet. Fill in today's data and hit 💾 Save.")
+        else:
+            hdf = history_df.copy()
+            hdf['stress_score'] = pd.to_numeric(hdf['stress_score'],errors='coerce')
+            hdf['sleep']        = pd.to_numeric(hdf['sleep'],       errors='coerce')
+
+            s1,s2,s3,s4 = st.columns(4)
+            s1.metric("Sessions logged",  str(len(hdf)))
+            s2.metric("Avg stress score", f"{hdf['stress_score'].mean():.0f}")
+            s3.metric("Avg sleep",        f"{hdf['sleep'].mean():.1f}h")
+            s4.metric("Last level",       str(hdf['stress_level'].iloc[-1]) if 'stress_level' in hdf.columns else "—")
+
+            st.subheader("📈 Stress Score Over Time")
+            st.line_chart(hdf.set_index('day_label')[['stress_score']].rename(
+                columns={'stress_score':'Stress'}))
+
+            st.subheader("📊 Sleep Hours Per Session")
+            st.bar_chart(hdf.set_index('day_label')[['sleep']].rename(columns={'sleep':'Sleep'}))
+
+            if 'study' in hdf.columns and 'screen' in hdf.columns:
+                st.subheader("📉 Study & Screen Time Trends")
+                trend_cols=[c for c in ['study','screen','anxiety','exercise'] if c in hdf.columns]
+                st.line_chart(hdf.set_index('day_label')[trend_cols])
+
+            if 'stress_level' in hdf.columns:
+                st.subheader("🥧 Stress Level Distribution")
+                level_counts = hdf['stress_level'].value_counts()
+                fig2,ax2 = plt.subplots(figsize=(5,4))
+                clrs2=[COLORS.get(l,'#888') for l in level_counts.index]
+                ax2.pie(level_counts.values,labels=level_counts.index,colors=clrs2,
+                        autopct='%1.0f%%',startangle=140,
+                        wedgeprops={'linewidth':1,'edgecolor':'white'})
+                ax2.set_title('Sessions by stress level',fontsize=12)
+                plt.tight_layout(); st.pyplot(fig2,use_container_width=True); plt.close()
+
+            with st.expander("📋 View raw data"):
+                st.dataframe(hdf.drop(columns=['id','user_id'],errors='ignore'),
+                             use_container_width=True)
+                csv = hdf.to_csv(index=False).encode()
+                st.download_button("⬇️ Download CSV",csv,
+                                   f"{username}_stress_history.csv","text/csv")
+
+    # ══════════════════════════════════════════════════════════
+    # TAB 5 — Goals
+    # ══════════════════════════════════════════════════════════
+    with tab5:
+        st.markdown("#### 🎯 Set your weekly wellness goals")
+        st.caption("Goals are saved per account and tracked against every session you log.")
+
+        with st.form("goals_form"):
+            st.markdown("##### Adjust your targets")
+            gc1,gc2 = st.columns(2)
+            with gc1:
+                g_sleep    = st.slider("😴 Sleep target (hrs/night, min)",
+                                       4.0,10.0,float(saved_goals.get("goal_sleep",8.0)),0.5)
+                g_exercise = st.slider("🏃 Exercise target (days/week, min)",
+                                       1,7,int(saved_goals.get("goal_exercise",4)))
+            with gc2:
+                g_study    = st.slider("📚 Study limit (hrs/day, max)",
+                                       2.0,14.0,float(saved_goals.get("goal_study",8.0)),0.5)
+                g_screen   = st.slider("📱 Screen time limit (hrs/day, max)",
+                                       1.0,12.0,float(saved_goals.get("goal_screen",4.0)),0.5)
+            save_goals_btn = st.form_submit_button("💾 Save Goals",use_container_width=True)
+
+        if save_goals_btn:
+            save_goals_db(user_id,g_sleep,g_study,g_exercise,g_screen)
+            st.success("✅ Goals saved!")
+            st.rerun()
+        else:
+            g_sleep    = float(saved_goals.get("goal_sleep",   8.0))
+            g_study    = float(saved_goals.get("goal_study",   8.0))
+            g_exercise = int(saved_goals.get("goal_exercise",  4))
+            g_screen   = float(saved_goals.get("goal_screen",  4.0))
+
+        st.divider()
+        st.markdown("##### How does today compare?")
+        col_a,col_b = st.columns(2)
+        for i,(label,actual,target,direction,u_a,u_t) in enumerate([
+            ("😴 Sleep",    sleep,          g_sleep,           "gte","hrs tonight",   "hrs target"),
+            ("📚 Study",    study,          g_study,           "lte","hrs today",     "hrs max"),
+            ("🏃 Exercise", float(exercise),float(g_exercise), "gte","days this week","days target"),
+            ("📱 Screen",   screen,         g_screen,          "lte","hrs today",     "hrs limit"),
+        ]):
+            met  = (actual>=target) if direction=="gte" else (actual<=target)
+            icon = "✅" if met else "❌"
+            status_txt = "Goal met!" if met else ("Need more" if direction=="gte" else "Too much")
+            delta_str = (f"+{round(actual-target,1)}" if actual>=target
+                         else str(round(actual-target,1)))
+            with (col_a if i%2==0 else col_b):
+                st.markdown(f"""
+                <div class="goal-card">
+                    <div class="goal-title">{icon} {label}</div>
+                    <div style="font-size:1.4rem;font-weight:700;
+                                color:{'#639922' if met else '#993C1D'};">
+                        {actual}
+                        <span style="font-size:0.85rem;font-weight:400;color:#888;">{u_a}</span>
+                    </div>
+                    <div style="font-size:0.82rem;color:#888;margin:2px 0 8px;">
+                        Target: {target} {u_t} &nbsp;|&nbsp; {status_txt} ({delta_str})
+                    </div>
+                </div>""", unsafe_allow_html=True)
+
+        st.divider()
+        st.markdown("##### Weekly progress & streaks")
+        hdf_g    = history_df.copy() if not history_df.empty else pd.DataFrame()
+        streaks  = compute_streaks(hdf_g,g_sleep,g_study,g_exercise,g_screen)
+        progress = week_progress(hdf_g,  g_sleep,g_study,g_exercise,g_screen)
+
+        for label,key,rule in [
+            ("😴 Sleep",   "sleep",   f"≥ {g_sleep}h/night"),
+            ("📚 Study",   "study",   f"≤ {g_study}h/day"),
+            ("🏃 Exercise","exercise",f"≥ {g_exercise} days/week"),
+            ("📱 Screen",  "screen",  f"≤ {g_screen}h/day"),
+        ]:
+            pct   = progress[key]; streak = streaks[key]
+            bar_c = "#639922" if pct>=70 else "#BA7517" if pct>=40 else "#E24B4A"
+            s_cls = "streak-badge" if streak>0 else "streak-badge streak-zero"
+            s_txt = f"🔥 {streak}-day streak" if streak>0 else "No streak yet"
             st.markdown(f"""
             <div class="goal-card">
-                <div class="goal-title">{icon} {label}</div>
-                <div style="font-size:1.4rem;font-weight:700;color:{'#639922' if met else '#993C1D'};">
-                    {actual} <span style="font-size:0.85rem;font-weight:400;color:#888;">{unit_actual}</span>
+                <div style="display:flex;align-items:center;
+                            justify-content:space-between;margin-bottom:6px;">
+                    <span class="goal-title" style="margin:0;">{label} &nbsp;
+                        <span style="font-weight:400;color:#888;font-size:0.8rem;">({rule})</span>
+                    </span>
+                    <span class="{s_cls}">{s_txt}</span>
                 </div>
-                <div style="font-size:0.82rem;color:#888;margin:2px 0 8px;">
-                    Target: {target} {unit_target} &nbsp;|&nbsp; {status_txt} ({delta_str})
+                <div style="background:#eee;border-radius:8px;height:12px;overflow:hidden;">
+                    <div style="width:{pct}%;height:100%;background:{bar_c};
+                                border-radius:8px;"></div>
                 </div>
-            </div>
-            """, unsafe_allow_html=True)
+                <div style="font-size:0.8rem;color:#888;margin-top:4px;">
+                    {pct}% of last 7 sessions goal was met {"✅" if pct==100 else ""}
+                </div>
+            </div>""", unsafe_allow_html=True)
+
+        st.divider()
+        st.markdown("##### Overall goal score")
+        overall = int(sum(progress.values())/len(progress))
+        o_color = "#639922" if overall>=70 else "#BA7517" if overall>=40 else "#E24B4A"
+        o_label = "Excellent 🌟" if overall>=80 else "Good 👍" if overall>=60 else "Needs work 💪"
+        _,oc2,_ = st.columns([1,2,1])
+        with oc2:
+            st.markdown(f"""
+            <div style="text-align:center;padding:1.5rem;background:#fafafa;
+                        border-radius:16px;border:0.5px solid #e0e0e0;">
+                <div style="font-size:3rem;font-weight:700;color:{o_color};">{overall}%</div>
+                <div style="font-size:1rem;color:#555;margin-top:4px;">{o_label}</div>
+                <div style="font-size:0.82rem;color:#888;margin-top:4px;">
+                    Based on your last 7 logged sessions
+                </div>
+            </div>""", unsafe_allow_html=True)
+
+        if hdf_g.empty:
+            st.info("💡 Start logging daily sessions to see your streaks and progress fill up!")
 
     st.divider()
+    st.caption("🧠 Student Stress Monitor | Built with Streamlit & scikit-learn | For educational purposes only.")
 
-    # ── Progress & streaks from history ───────────────────────
-    st.markdown("##### Weekly progress & streaks")
 
-    hdf_clean = history_df.dropna(subset=['StressScore']).copy() if not history_df.empty else pd.DataFrame()
+# ═════════════════════════════════════════════════════════════════════════════
+# ROUTER
+# ═════════════════════════════════════════════════════════════════════════════
 
-    streaks  = compute_streaks(hdf_clean, g_sleep, g_study, g_exercise, g_screen)
-    progress = week_progress(hdf_clean,  g_sleep, g_study, g_exercise, g_screen)
-
-    goals_display = [
-        ("😴 Sleep",    "sleep",    f"≥ {g_sleep}h/night"),
-        ("📚 Study",    "study",    f"≤ {g_study}h/day"),
-        ("🏃 Exercise", "exercise", f"≥ {g_exercise} days/week"),
-        ("📱 Screen",   "screen",   f"≤ {g_screen}h/day"),
-    ]
-
-    for label, key, rule in goals_display:
-        pct     = progress[key]
-        streak  = streaks[key]
-        bar_col = "#639922" if pct >= 70 else "#BA7517" if pct >= 40 else "#E24B4A"
-        streak_cls = "streak-badge" if streak > 0 else "streak-badge streak-zero"
-        streak_txt = f"🔥 {streak}-day streak" if streak > 0 else "No streak yet"
-
-        st.markdown(f"""
-        <div class="goal-card">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                <span class="goal-title" style="margin:0;">{label} &nbsp;
-                    <span style="font-weight:400;color:#888;font-size:0.8rem;">({rule})</span>
-                </span>
-                <span class="{streak_cls}">{streak_txt}</span>
-            </div>
-            <div style="background:#eee;border-radius:8px;height:12px;overflow:hidden;">
-                <div style="width:{pct}%;height:100%;background:{bar_col};border-radius:8px;
-                            transition:width 0.5s;"></div>
-            </div>
-            <div style="font-size:0.8rem;color:#888;margin-top:4px;">
-                {pct}% of last 7 sessions goal was met
-                {"&nbsp;✅" if pct == 100 else ""}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.divider()
-
-    # ── Overall goal score ─────────────────────────────────────
-    st.markdown("##### Overall goal score")
-    overall = int(sum(progress.values()) / len(progress))
-    o_color = "#639922" if overall >= 70 else "#BA7517" if overall >= 40 else "#E24B4A"
-    o_label = "Excellent 🌟" if overall >= 80 else "Good 👍" if overall >= 60 else "Needs work 💪"
-
-    oc1, oc2, oc3 = st.columns([1, 2, 1])
-    with oc2:
-        st.markdown(f"""
-        <div style="text-align:center;padding:1.5rem;background:#fafafa;
-                    border-radius:16px;border:0.5px solid #e0e0e0;">
-            <div style="font-size:3rem;font-weight:700;color:{o_color};">{overall}%</div>
-            <div style="font-size:1rem;color:#555;margin-top:4px;">{o_label}</div>
-            <div style="font-size:0.82rem;color:#888;margin-top:4px;">
-                Based on your last 7 logged sessions
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    if hdf_clean.empty:
-        st.info("💡 Start logging daily sessions to see your streaks and progress fill up!")
-
-# ─── Footer ──────────────────────────────────────────────────────────────────
-st.divider()
-st.caption("🧠 Student Stress Monitor | Built with Streamlit & scikit-learn | For educational purposes only.")
+if "user" not in st.session_state or st.session_state["user"] is None:
+    show_auth_page()
+else:
+    show_main_app(st.session_state["user"])
