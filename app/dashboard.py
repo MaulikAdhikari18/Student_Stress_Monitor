@@ -38,6 +38,17 @@ st.markdown("""
         border-radius:0 8px 8px 0; padding:0.7rem 1rem;
         margin-bottom:0.5rem; font-size:0.92rem;
     }
+    .goal-card {
+        background:#fff; border:0.5px solid #e0e0e0;
+        border-radius:12px; padding:1rem 1.2rem; margin-bottom:0.6rem;
+    }
+    .goal-title { font-size:0.85rem; font-weight:600; color:#444; margin-bottom:6px; }
+    .streak-badge {
+        display:inline-block; padding:2px 10px;
+        border-radius:20px; font-size:0.78rem; font-weight:600;
+        background:#EAF3DE; color:#3B6D11; margin-left:8px;
+    }
+    .streak-zero { background:#f0f0f0; color:#888; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -87,6 +98,72 @@ history_df = pd.read_csv(file_path)
 for col in HISTORY_COLS:
     if col not in history_df.columns:
         history_df[col] = np.nan
+
+# ─── Load / Init Goals CSV ───────────────────────────────────────────────────
+
+goals_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'goals.csv')
+GOALS_COLS = ["goal_sleep", "goal_study", "goal_exercise", "goal_screen"]
+GOALS_DEFAULTS = {"goal_sleep": 8.0, "goal_study": 8.0,
+                  "goal_exercise": 4, "goal_screen": 4.0}
+
+if not os.path.exists(goals_path):
+    pd.DataFrame([GOALS_DEFAULTS]).to_csv(goals_path, index=False)
+
+goals_df = pd.read_csv(goals_path)
+for col in GOALS_COLS:
+    if col not in goals_df.columns:
+        goals_df[col] = GOALS_DEFAULTS[col]
+
+saved_goals = goals_df.iloc[-1].to_dict()
+
+
+def compute_streaks(hdf, goal_sleep, goal_study, goal_exercise, goal_screen):
+    """Return streak counts (consecutive days goal was met, most recent run)."""
+    streaks = {"sleep": 0, "study": 0, "exercise": 0, "screen": 0}
+    if hdf.empty:
+        return streaks
+    for col, goal_col, direction in [
+        ("Sleep",    goal_sleep,    "gte"),
+        ("Study",    goal_study,    "lte"),
+        ("Exercise", goal_exercise, "gte"),
+        ("Screen",   goal_screen,   "lte"),
+    ]:
+        if col not in hdf.columns:
+            continue
+        vals = pd.to_numeric(hdf[col], errors='coerce').dropna().tolist()
+        streak = 0
+        for v in reversed(vals):
+            met = (v >= goal_col) if direction == "gte" else (v <= goal_col)
+            if met:
+                streak += 1
+            else:
+                break
+        key = col.lower()
+        streaks[key] = streak
+    return streaks
+
+
+def week_progress(hdf, goal_sleep, goal_study, goal_exercise, goal_screen):
+    """Return % of last-7-session days each goal was met."""
+    pct = {"sleep": 0, "study": 0, "exercise": 0, "screen": 0}
+    if hdf.empty:
+        return pct
+    recent = hdf.tail(7)
+    checks = [
+        ("Sleep",    goal_sleep,    "gte", "sleep"),
+        ("Study",    goal_study,    "lte", "study"),
+        ("Exercise", goal_exercise, "gte", "exercise"),
+        ("Screen",   goal_screen,   "lte", "screen"),
+    ]
+    for col, goal_val, direction, key in checks:
+        if col not in recent.columns:
+            continue
+        vals = pd.to_numeric(recent[col], errors='coerce').dropna()
+        if len(vals) == 0:
+            continue
+        met = (vals >= goal_val) if direction == "gte" else (vals <= goal_val)
+        pct[key] = int(met.sum() / len(vals) * 100)
+    return pct
 
 # ─── Header ──────────────────────────────────────────────────────────────────
 
@@ -196,8 +273,8 @@ if save_btn:
 
 # ─── Main Tabs ────────────────────────────────────────────────────────────────
 
-tab1, tab2, tab3, tab4 = st.tabs(
-    ["📊 Stress Result", "🔍 Factor Analysis", "💡 Management Tips", "📈 My History"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    ["📊 Stress Result", "🔍 Factor Analysis", "💡 Management Tips", "📈 My History", "🎯 My Goals"])
 
 # ══════════════════════════════════════════════════════════════
 # TAB 1 — Stress Result
@@ -441,6 +518,145 @@ with tab4:
             csv = hdf.to_csv(index=False).encode()
             st.download_button("⬇️ Download CSV", csv,
                                "stress_history.csv", "text/csv")
+
+# ══════════════════════════════════════════════════════════════
+# TAB 5 — Goals
+# ══════════════════════════════════════════════════════════════
+with tab5:
+    st.markdown("#### 🎯 Set your weekly wellness goals")
+    st.caption("Goals are saved and tracked against every session you log. "
+               "Progress shows your last 7 sessions; streaks count consecutive days you hit the target.")
+
+    # ── Goal setters ──────────────────────────────────────────
+    with st.form("goals_form"):
+        st.markdown("##### Adjust your targets")
+        gc1, gc2 = st.columns(2)
+        with gc1:
+            g_sleep    = st.slider("😴 Sleep target (hrs/night, min)",
+                                   4.0, 10.0, float(saved_goals.get("goal_sleep", 8.0)), 0.5)
+            g_exercise = st.slider("🏃 Exercise target (days/week, min)",
+                                   1, 7, int(saved_goals.get("goal_exercise", 4)))
+        with gc2:
+            g_study    = st.slider("📚 Study limit (hrs/day, max)",
+                                   2.0, 14.0, float(saved_goals.get("goal_study", 8.0)), 0.5)
+            g_screen   = st.slider("📱 Screen time limit (hrs/day, max)",
+                                   1.0, 12.0, float(saved_goals.get("goal_screen", 4.0)), 0.5)
+
+        save_goals_btn = st.form_submit_button("💾 Save Goals", use_container_width=True)
+
+    if save_goals_btn:
+        new_goals = {"goal_sleep": g_sleep, "goal_study": g_study,
+                     "goal_exercise": g_exercise, "goal_screen": g_screen}
+        pd.DataFrame([new_goals]).to_csv(goals_path, index=False)
+        saved_goals = new_goals
+        st.success("✅ Goals saved!")
+        st.rerun()
+    else:
+        g_sleep    = float(saved_goals.get("goal_sleep",    8.0))
+        g_study    = float(saved_goals.get("goal_study",    8.0))
+        g_exercise = int(saved_goals.get("goal_exercise",   4))
+        g_screen   = float(saved_goals.get("goal_screen",   4.0))
+
+    st.divider()
+
+    # ── Today vs goals ────────────────────────────────────────
+    st.markdown("##### How does today compare?")
+
+    today_checks = [
+        ("😴 Sleep", sleep,    g_sleep,    "gte", "hrs tonight",  "hrs target"),
+        ("📚 Study", study,    g_study,    "lte", "hrs today",    "hrs max"),
+        ("🏃 Exercise", float(exercise), float(g_exercise), "gte", "days this week", "days target"),
+        ("📱 Screen", screen,  g_screen,   "lte", "hrs today",    "hrs limit"),
+    ]
+
+    col_a, col_b = st.columns(2)
+    for i, (label, actual, target, direction, unit_actual, unit_target) in enumerate(today_checks):
+        met = (actual >= target) if direction == "gte" else (actual <= target)
+        icon = "✅" if met else "❌"
+        status_txt = "Goal met!" if met else ("Need more" if direction == "gte" else "Too much")
+        delta_val  = round(actual - target, 1)
+        delta_str  = (f"+{delta_val}" if delta_val >= 0 else str(delta_val))
+
+        card_col = col_a if i % 2 == 0 else col_b
+        with card_col:
+            st.markdown(f"""
+            <div class="goal-card">
+                <div class="goal-title">{icon} {label}</div>
+                <div style="font-size:1.4rem;font-weight:700;color:{'#639922' if met else '#993C1D'};">
+                    {actual} <span style="font-size:0.85rem;font-weight:400;color:#888;">{unit_actual}</span>
+                </div>
+                <div style="font-size:0.82rem;color:#888;margin:2px 0 8px;">
+                    Target: {target} {unit_target} &nbsp;|&nbsp; {status_txt} ({delta_str})
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # ── Progress & streaks from history ───────────────────────
+    st.markdown("##### Weekly progress & streaks")
+
+    hdf_clean = history_df.dropna(subset=['StressScore']).copy() if not history_df.empty else pd.DataFrame()
+
+    streaks  = compute_streaks(hdf_clean, g_sleep, g_study, g_exercise, g_screen)
+    progress = week_progress(hdf_clean,  g_sleep, g_study, g_exercise, g_screen)
+
+    goals_display = [
+        ("😴 Sleep",    "sleep",    f"≥ {g_sleep}h/night"),
+        ("📚 Study",    "study",    f"≤ {g_study}h/day"),
+        ("🏃 Exercise", "exercise", f"≥ {g_exercise} days/week"),
+        ("📱 Screen",   "screen",   f"≤ {g_screen}h/day"),
+    ]
+
+    for label, key, rule in goals_display:
+        pct     = progress[key]
+        streak  = streaks[key]
+        bar_col = "#639922" if pct >= 70 else "#BA7517" if pct >= 40 else "#E24B4A"
+        streak_cls = "streak-badge" if streak > 0 else "streak-badge streak-zero"
+        streak_txt = f"🔥 {streak}-day streak" if streak > 0 else "No streak yet"
+
+        st.markdown(f"""
+        <div class="goal-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                <span class="goal-title" style="margin:0;">{label} &nbsp;
+                    <span style="font-weight:400;color:#888;font-size:0.8rem;">({rule})</span>
+                </span>
+                <span class="{streak_cls}">{streak_txt}</span>
+            </div>
+            <div style="background:#eee;border-radius:8px;height:12px;overflow:hidden;">
+                <div style="width:{pct}%;height:100%;background:{bar_col};border-radius:8px;
+                            transition:width 0.5s;"></div>
+            </div>
+            <div style="font-size:0.8rem;color:#888;margin-top:4px;">
+                {pct}% of last 7 sessions goal was met
+                {"&nbsp;✅" if pct == 100 else ""}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # ── Overall goal score ─────────────────────────────────────
+    st.markdown("##### Overall goal score")
+    overall = int(sum(progress.values()) / len(progress))
+    o_color = "#639922" if overall >= 70 else "#BA7517" if overall >= 40 else "#E24B4A"
+    o_label = "Excellent 🌟" if overall >= 80 else "Good 👍" if overall >= 60 else "Needs work 💪"
+
+    oc1, oc2, oc3 = st.columns([1, 2, 1])
+    with oc2:
+        st.markdown(f"""
+        <div style="text-align:center;padding:1.5rem;background:#fafafa;
+                    border-radius:16px;border:0.5px solid #e0e0e0;">
+            <div style="font-size:3rem;font-weight:700;color:{o_color};">{overall}%</div>
+            <div style="font-size:1rem;color:#555;margin-top:4px;">{o_label}</div>
+            <div style="font-size:0.82rem;color:#888;margin-top:4px;">
+                Based on your last 7 logged sessions
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    if hdf_clean.empty:
+        st.info("💡 Start logging daily sessions to see your streaks and progress fill up!")
 
 # ─── Footer ──────────────────────────────────────────────────────────────────
 st.divider()
