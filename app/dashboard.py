@@ -60,6 +60,29 @@ st.markdown("""
         display:inline-block; background:rgba(83,74,183,0.2); color:#AFA9EC;
         border-radius:20px; padding:3px 12px; font-size:0.85rem; font-weight:600;
     }
+    .day-card {
+        border:0.5px solid rgba(255,255,255,0.12);
+        border-radius:12px; padding:0.8rem 1rem; margin-bottom:0.6rem;
+        background:rgba(255,255,255,0.04);
+    }
+    .day-header {
+        font-size:0.85rem; font-weight:600; color:#AFA9EC;
+        margin-bottom:0.5rem; letter-spacing:0.03em;
+    }
+    .task-row {
+        display:flex; align-items:center; gap:8px;
+        padding:5px 0; border-bottom:0.5px solid rgba(255,255,255,0.06);
+        font-size:0.88rem;
+    }
+    .task-row:last-child { border-bottom:none; }
+    .pri-high   { background:rgba(163,45,45,0.2);   color:#F09595; border-radius:4px; padding:1px 7px; font-size:0.75rem; font-weight:600; }
+    .pri-medium { background:rgba(186,117,23,0.2);  color:#FAC775; border-radius:4px; padding:1px 7px; font-size:0.75rem; font-weight:600; }
+    .pri-low    { background:rgba(99,153,34,0.2);   color:#C0DD97; border-radius:4px; padding:1px 7px; font-size:0.75rem; font-weight:600; }
+    .break-box {
+        background:rgba(83,74,183,0.12); border-left:4px solid #7F77DD;
+        border-radius:0 10px 10px 0; padding:0.9rem 1.1rem; margin-bottom:1rem;
+    }
+    .break-stat { font-size:2rem; font-weight:700; color:#AFA9EC; display:inline-block; margin-right:0.5rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -213,6 +236,140 @@ def save_goals_db(user_id, goal_sleep, goal_study, goal_exercise, goal_screen):
           datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
     conn.commit()
     conn.close()
+
+
+# ── Planner DB helpers ───────────────────────────────────────────────────────
+
+def init_planner_table():
+    conn = get_db()
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS planner_tasks (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id     INTEGER NOT NULL,
+            subject     TEXT    NOT NULL,
+            topic       TEXT,
+            deadline    TEXT    NOT NULL,
+            priority    TEXT    DEFAULT 'Medium',
+            duration_h  REAL    DEFAULT 1.0,
+            completed   INTEGER DEFAULT 0,
+            created_at  TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+init_planner_table()
+
+
+def add_task(user_id, subject, topic, deadline, priority, duration_h):
+    conn = get_db()
+    conn.execute("""
+        INSERT INTO planner_tasks
+            (user_id,subject,topic,deadline,priority,duration_h,completed,created_at)
+        VALUES (?,?,?,?,?,?,0,?)
+    """, (user_id, subject, topic, deadline, priority, duration_h,
+          datetime.datetime.now().strftime("%Y-%m-%d %H:%M")))
+    conn.commit()
+    conn.close()
+
+
+def load_tasks(user_id) -> pd.DataFrame:
+    conn = get_db()
+    df = pd.read_sql_query(
+        "SELECT * FROM planner_tasks WHERE user_id=? ORDER BY deadline ASC",
+        conn, params=(user_id,)
+    )
+    conn.close()
+    return df
+
+
+def toggle_task(task_id, current_state):
+    conn = get_db()
+    conn.execute("UPDATE planner_tasks SET completed=? WHERE id=?",
+                 (0 if current_state else 1, task_id))
+    conn.commit()
+    conn.close()
+
+
+def delete_task(task_id):
+    conn = get_db()
+    conn.execute("DELETE FROM planner_tasks WHERE id=?", (task_id,))
+    conn.commit()
+    conn.close()
+
+
+def generate_weekly_schedule(tasks_df, stress_score, daily_study_limit):
+    """
+    Distribute pending tasks across the next 7 days based on:
+    - deadline urgency
+    - task priority
+    - daily study hour cap (adjusted down if stress is high)
+    Returns a dict {date_str: [task_rows]}
+    """
+    today = datetime.date.today()
+    days  = [(today + datetime.timedelta(days=i)) for i in range(7)]
+
+    # Stress-adjusted daily cap
+    if stress_score >= 75:
+        cap = max(1.5, daily_study_limit * 0.5)
+    elif stress_score >= 55:
+        cap = max(2.0, daily_study_limit * 0.7)
+    else:
+        cap = daily_study_limit
+
+    pending = tasks_df[tasks_df['completed'] == 0].copy()
+    if pending.empty:
+        return {d.strftime("%a %d %b"): [] for d in days}, cap
+
+    # Priority weight for sorting
+    pri_weight = {'High': 0, 'Medium': 1, 'Low': 2}
+    pending['pri_w'] = pending['priority'].map(pri_weight).fillna(1)
+    pending['deadline_dt'] = pd.to_datetime(pending['deadline'], errors='coerce')
+    pending = pending.sort_values(['deadline_dt', 'pri_w'])
+
+    schedule = {d.strftime("%a %d %b"): [] for d in days}
+    daily_used = {d.strftime("%a %d %b"): 0.0 for d in days}
+
+    for _, task in pending.iterrows():
+        try:
+            dl = pd.to_datetime(task['deadline']).date()
+        except Exception:
+            dl = today + datetime.timedelta(days=6)
+
+        assigned = False
+        for day in days:
+            day_str = day.strftime("%a %d %b")
+            if day > dl:
+                break
+            if daily_used[day_str] + task['duration_h'] <= cap:
+                schedule[day_str].append(task)
+                daily_used[day_str] += task['duration_h']
+                assigned = True
+                break
+
+        # If couldn't fit before deadline, place on earliest available day
+        if not assigned:
+            for day in days:
+                day_str = day.strftime("%a %d %b")
+                if daily_used[day_str] < cap:
+                    schedule[day_str].append(task)
+                    daily_used[day_str] += task['duration_h']
+                    break
+
+    return schedule, cap
+
+
+def get_break_schedule(stress_score):
+    """Return recommended study block & break duration based on stress."""
+    if stress_score >= 75:
+        return 20, 10, "🔴 Critical stress — short blocks, frequent breaks"
+    elif stress_score >= 55:
+        return 25, 8,  "🟠 High stress — Pomodoro 25/8 recommended"
+    elif stress_score >= 30:
+        return 35, 7,  "🟡 Moderate stress — 35 min focus, 7 min break"
+    else:
+        return 50, 10, "🟢 Low stress — deep work 50/10 recommended"
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -455,9 +612,9 @@ def show_main_app(user: dict):
         st.rerun()
 
     # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab1,tab2,tab3,tab4,tab5 = st.tabs([
+    tab1,tab2,tab3,tab4,tab5,tab6 = st.tabs([
         "📊 Stress Result","🔍 Factor Analysis",
-        "💡 Management Tips","📈 My History","🎯 My Goals"
+        "💡 Management Tips","📈 My History","🎯 My Goals","📅 Study Planner"
     ])
 
     # ══════════════════════════════════════════════════════════
@@ -749,6 +906,238 @@ def show_main_app(user: dict):
 
         if hdf_g.empty:
             st.info("💡 Start logging daily sessions to see your streaks and progress fill up!")
+
+    # ══════════════════════════════════════════════════════════
+    # TAB 6 — Study Planner
+    # ══════════════════════════════════════════════════════════
+    with tab6:
+        tasks_df = load_tasks(user_id)
+
+        st.markdown("#### 📅 Study Planner")
+        st.caption("Add subjects and deadlines — the planner builds your week automatically, "
+                   "adjusting daily hours based on your current stress level.")
+
+        # ── Break recommendation (stress-aware) ───────────────
+        block_min, break_min, break_label = get_break_schedule(stress_score)
+        st.markdown(f"""
+        <div class="break-box">
+            <div style="font-size:0.78rem;font-weight:600;color:#AFA9EC;
+                        text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">
+                ⏱ Recommended study rhythm for today
+            </div>
+            <div>
+                <span class="break-stat">{block_min}m</span>
+                <span style="font-size:0.9rem;color:inherit;opacity:0.7;">study block</span>
+                &nbsp;→&nbsp;
+                <span class="break-stat">{break_min}m</span>
+                <span style="font-size:0.9rem;color:inherit;opacity:0.7;">break</span>
+            </div>
+            <div style="font-size:0.85rem;opacity:0.7;margin-top:4px;">{break_label}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── Add task form ──────────────────────────────────────
+        with st.expander("➕ Add a new task", expanded=tasks_df.empty):
+            with st.form("add_task_form", clear_on_submit=True):
+                fc1, fc2 = st.columns(2)
+                with fc1:
+                    t_subject  = st.text_input("Subject / Course",
+                                               placeholder="e.g. Mathematics")
+                    t_topic    = st.text_input("Topic (optional)",
+                                               placeholder="e.g. Integration by parts")
+                    t_deadline = st.date_input("Deadline",
+                                               value=datetime.date.today() +
+                                               datetime.timedelta(days=3),
+                                               min_value=datetime.date.today())
+                with fc2:
+                    t_priority = st.selectbox("Priority", ["High","Medium","Low"])
+                    t_duration = st.slider("Estimated hours needed", 0.5, 8.0, 1.5, 0.5)
+                    st.markdown("")
+                    st.markdown("")
+                    submitted = st.form_submit_button("Add task →",
+                                                      use_container_width=True,
+                                                      type="primary")
+                if submitted:
+                    if not t_subject.strip():
+                        st.error("Please enter a subject name.")
+                    else:
+                        add_task(user_id, t_subject.strip(), t_topic.strip(),
+                                 t_deadline.strftime("%Y-%m-%d"),
+                                 t_priority, t_duration)
+                        st.success(f"✅ Task added: {t_subject}")
+                        st.rerun()
+
+        if tasks_df.empty:
+            st.info("No tasks yet — add your first task above to generate your study plan.")
+        else:
+            st.divider()
+
+            # ── Settings row ──────────────────────────────────
+            pc1, pc2, pc3 = st.columns([2,2,2])
+            with pc1:
+                daily_limit = st.slider("Max study hours per day",
+                                        1.0, 12.0,
+                                        float(saved_goals.get("goal_study", 8.0)),
+                                        0.5,
+                                        help="Stress level may reduce this automatically")
+            with pc2:
+                show_done = st.toggle("Show completed tasks", value=False)
+            with pc3:
+                st.metric("Total tasks",   str(len(tasks_df)))
+                st.metric("Pending",       str(len(tasks_df[tasks_df['completed']==0])))
+
+            st.divider()
+
+            # ── Priority task list ─────────────────────────────
+            st.markdown("#### 🔢 Priority task list")
+            st.caption("Sorted by deadline then priority — tackle from the top.")
+
+            pending_tasks = tasks_df[tasks_df['completed']==0].copy()
+            done_tasks    = tasks_df[tasks_df['completed']==1].copy()
+
+            pri_weight = {'High':0,'Medium':1,'Low':2}
+            pending_tasks['pri_w'] = pending_tasks['priority'].map(pri_weight).fillna(1)
+            pending_tasks['deadline_dt'] = pd.to_datetime(
+                pending_tasks['deadline'], errors='coerce')
+            pending_tasks = pending_tasks.sort_values(['deadline_dt','pri_w'])
+
+            def days_left_str(deadline_str):
+                try:
+                    dl = datetime.date.fromisoformat(str(deadline_str)[:10])
+                    diff = (dl - datetime.date.today()).days
+                    if diff < 0:   return "⚠️ Overdue"
+                    if diff == 0:  return "🔥 Due today"
+                    if diff == 1:  return "⏰ Due tomorrow"
+                    return f"📅 {diff} days left"
+                except Exception:
+                    return ""
+
+            display_tasks = pd.concat([pending_tasks,
+                                       done_tasks]) if show_done else pending_tasks
+
+            for _, row in display_tasks.iterrows():
+                task_id   = int(row['id'])
+                is_done   = int(row['completed']) == 1
+                pri_cls   = f"pri-{row['priority'].lower()}"
+                dl_str    = days_left_str(row['deadline'])
+                topic_str = f" — {row['topic']}" if row['topic'] else ""
+                dur_str   = f"{row['duration_h']}h"
+
+                col_chk, col_info, col_del = st.columns([0.5, 8, 0.8])
+                with col_chk:
+                    if st.button("✅" if is_done else "⬜",
+                                 key=f"chk_{task_id}",
+                                 help="Toggle complete"):
+                        toggle_task(task_id, is_done)
+                        st.rerun()
+                with col_info:
+                    done_style = "opacity:0.45;text-decoration:line-through;" if is_done else ""
+                    st.markdown(f"""
+                    <div class="task-row" style="{done_style}">
+                        <span class="{pri_cls}">{row['priority']}</span>
+                        <span style="font-weight:600;">{row['subject']}</span>
+                        <span style="opacity:0.65;">{topic_str}</span>
+                        <span style="margin-left:auto;opacity:0.55;font-size:0.82rem;">
+                            {dur_str} &nbsp;|&nbsp; {dl_str}
+                        </span>
+                    </div>""", unsafe_allow_html=True)
+                with col_del:
+                    if st.button("🗑", key=f"del_{task_id}", help="Delete task"):
+                        delete_task(task_id)
+                        st.rerun()
+
+            st.divider()
+
+            # ── Weekly schedule ────────────────────────────────
+            st.markdown("#### 🗓 Your 7-day study schedule")
+
+            pending_only = tasks_df[tasks_df['completed']==0].copy()
+            schedule, effective_cap = generate_weekly_schedule(
+                pending_only, stress_score, daily_limit)
+
+            if stress_score >= 55:
+                st.info(f"⚠️ Your stress score is **{stress_score}/100** — daily study cap "
+                        f"has been reduced to **{effective_cap:.1f}h/day** to protect your wellbeing.")
+
+            DAYS_PER_ROW = 4
+            day_items = list(schedule.items())
+
+            for row_start in range(0, 7, DAYS_PER_ROW):
+                row_days = day_items[row_start:row_start+DAYS_PER_ROW]
+                cols = st.columns(len(row_days))
+                for col, (day_str, day_tasks) in zip(cols, row_days):
+                    with col:
+                        total_h = sum(t['duration_h'] for t in day_tasks)
+                        load_color = ("#A32D2D" if total_h >= effective_cap * 0.9
+                                      else "#BA7517" if total_h >= effective_cap * 0.6
+                                      else "#639922")
+                        st.markdown(f"""
+                        <div class="day-card">
+                            <div class="day-header">{day_str}</div>
+                            <div style="font-size:0.78rem;color:{load_color};
+                                        margin-bottom:8px;font-weight:600;">
+                                {total_h:.1f}h / {effective_cap:.1f}h
+                            </div>""", unsafe_allow_html=True)
+
+                        if day_tasks:
+                            for t in day_tasks:
+                                pri_cls = f"pri-{t['priority'].lower()}"
+                                st.markdown(f"""
+                                <div style="font-size:0.82rem;padding:3px 0;
+                                            border-bottom:0.5px solid rgba(255,255,255,0.06);">
+                                    <span class="{pri_cls}">{t['priority'][0]}</span>
+                                    &nbsp;<strong>{t['subject']}</strong>
+                                    <span style="opacity:0.55;"> {t['duration_h']}h</span>
+                                </div>""", unsafe_allow_html=True)
+                        else:
+                            st.markdown(
+                                '<div style="font-size:0.82rem;opacity:0.4;'
+                                'padding:4px 0;">Rest day 🌿</div>',
+                                unsafe_allow_html=True)
+
+                        st.markdown("</div>", unsafe_allow_html=True)
+
+            st.divider()
+
+            # ── Exam countdowns ────────────────────────────────
+            st.markdown("#### ⏳ Upcoming deadlines")
+            today = datetime.date.today()
+            upcoming = tasks_df[tasks_df['completed']==0].copy()
+            upcoming['deadline_dt'] = pd.to_datetime(
+                upcoming['deadline'], errors='coerce')
+            upcoming = upcoming.dropna(subset=['deadline_dt'])
+            upcoming['days_left'] = upcoming['deadline_dt'].apply(
+                lambda x: (x.date()-today).days)
+            upcoming = upcoming.sort_values('days_left').head(6)
+
+            if upcoming.empty:
+                st.success("🎉 No upcoming deadlines — you're all caught up!")
+            else:
+                dcols = st.columns(min(3, len(upcoming)))
+                for i, (_, row) in enumerate(upcoming.iterrows()):
+                    dl = int(row['days_left'])
+                    color = ("#A32D2D" if dl<=1 else
+                             "#BA7517" if dl<=3 else
+                             "#639922")
+                    label = ("⚠️ Overdue" if dl<0 else
+                             "🔥 Today"   if dl==0 else
+                             f"{dl}d left")
+                    with dcols[i % 3]:
+                        st.markdown(f"""
+                        <div class="day-card" style="text-align:center;">
+                            <div style="font-size:2rem;font-weight:700;color:{color};">
+                                {label}
+                            </div>
+                            <div style="font-weight:600;margin-top:4px;">
+                                {row['subject']}
+                            </div>
+                            <div style="font-size:0.8rem;opacity:0.55;margin-top:2px;">
+                                {row.get('topic','') or ''}
+                            </div>
+                            <div style="font-size:0.78rem;opacity:0.45;margin-top:4px;">
+                                Due: {str(row['deadline'])[:10]}
+                            </div>
+                        </div>""", unsafe_allow_html=True)
 
     st.divider()
     st.caption("🧠 Student Stress Monitor | Built with Streamlit & scikit-learn | For educational purposes only.")
