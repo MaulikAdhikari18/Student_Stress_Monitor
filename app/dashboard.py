@@ -24,7 +24,6 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* ── Global ── */
     .main-title {
         font-size:2rem; font-weight:700;
         background:linear-gradient(135deg,#534AB7,#D4537E);
@@ -32,196 +31,138 @@ st.markdown("""
     }
     .auth-title { font-size:1.4rem; font-weight:700; color:#534AB7; margin-bottom:0.2rem; }
     .auth-sub   { font-size:0.88rem; color:#888; margin-bottom:1.4rem; }
-    .section-header {
-        font-size:1.05rem; font-weight:700; color:#AFA9EC;
-        letter-spacing:0.04em; text-transform:uppercase;
-        margin:1.4rem 0 0.8rem; display:flex; align-items:center; gap:8px;
-    }
-    .section-header::after {
-        content:''; flex:1; height:1px;
-        background:linear-gradient(90deg,rgba(175,169,236,0.3),transparent);
-    }
-
-    /* ── Stress result box ── */
-    .stress-box { padding:1.2rem 1.5rem; border-radius:16px; border-left:6px solid; margin-bottom:1rem; }
-    .box-low      { background:rgba(99,153,34,0.13);  border-color:#639922; }
-    .box-moderate { background:rgba(186,117,23,0.13); border-color:#BA7517; }
-    .box-high     { background:rgba(153,60,29,0.13);  border-color:#993C1D; }
-    .box-critical { background:rgba(163,45,45,0.13);  border-color:#A32D2D; }
-
-    /* ── Snapshot stat cards ── */
-    .snap-grid {
-        display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:1rem;
-    }
-    .snap-card {
-        background:rgba(255,255,255,0.04);
-        border:1px solid rgba(255,255,255,0.09);
-        border-radius:14px; padding:1rem 1.1rem;
-        display:flex; flex-direction:column; gap:4px;
-    }
-    .snap-label { font-size:0.75rem; font-weight:600; color:#888; text-transform:uppercase; letter-spacing:0.06em; }
-    .snap-value { font-size:1.55rem; font-weight:800; color:#fff; line-height:1.1; }
-    .snap-sub   { font-size:0.78rem; color:#666; }
-
-    /* ── Chart cards ── */
-    .chart-card {
-        background:rgba(255,255,255,0.03);
-        border:1px solid rgba(255,255,255,0.08);
-        border-radius:16px; padding:1.1rem 1.2rem 0.6rem;
-        margin-bottom:1rem;
-    }
-    .chart-title {
-        font-size:0.82rem; font-weight:700; color:#AFA9EC;
-        text-transform:uppercase; letter-spacing:0.07em; margin-bottom:0.5rem;
-    }
-
-    /* ── History stat summary cards ── */
-    .hist-stat-grid {
-        display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:1.2rem;
-    }
-    .hist-stat-card {
+    .stress-box { padding:1rem 1.4rem; border-radius:12px; border-left:6px solid; margin-bottom:1rem; }
+    .box-low      { background:rgba(99,153,34,0.15);  border-color:#639922; color:inherit; }
+    .box-moderate { background:rgba(186,117,23,0.15); border-color:#BA7517; color:inherit; }
+    .box-high     { background:rgba(153,60,29,0.15);  border-color:#993C1D; color:inherit; }
+    .box-critical { background:rgba(163,45,45,0.15);  border-color:#A32D2D; color:inherit; }
+    .tip-box {
         background:rgba(83,74,183,0.12);
-        border:1px solid rgba(175,169,236,0.18);
-        border-radius:14px; padding:1rem 1.1rem;
-        text-align:center;
+        border-left:4px solid #7F77DD;
+        border-radius:0 8px 8px 0;
+        padding:0.75rem 1rem;
+        margin-bottom:0.5rem;
+        font-size:0.92rem;
+        color:inherit;
     }
-    .hist-stat-val   { font-size:1.8rem; font-weight:800; color:#AFA9EC; line-height:1; }
-    .hist-stat-label { font-size:0.75rem; color:#888; margin-top:4px; text-transform:uppercase; letter-spacing:0.05em; }
-
-    /* ── Recommendation cards (fixed height grid) ── */
-    .rec-grid {
-        display:grid;
-        grid-template-columns:repeat(4,1fr);
-        gap:12px;
-        margin-bottom:1rem;
-    }
-    .rec-card {
-        border-radius:16px;
-        padding:1.1rem 1.1rem 1rem;
-        display:flex; flex-direction:column; gap:6px;
-        min-height:210px;
-        position:relative; overflow:hidden;
-        border-top:3px solid transparent;
-    }
-    .rec-critical { background:rgba(163,45,45,0.16); border-top-color:#E24B4A; }
-    .rec-high     { background:rgba(186,117,23,0.16); border-top-color:#FAC775; }
-    .rec-moderate { background:rgba(83,74,183,0.14);  border-top-color:#7F77DD; }
-    .rec-positive { background:rgba(99,153,34,0.14);  border-top-color:#97C459; }
-    .rec-icon     { font-size:1.6rem; line-height:1; }
-    .rec-badge {
-        font-size:0.65rem; font-weight:700; padding:2px 8px; border-radius:20px;
-        text-transform:uppercase; letter-spacing:0.06em; width:fit-content;
-    }
-    .badge-critical { background:rgba(226,75,74,0.25); color:#F09595; }
-    .badge-high     { background:rgba(250,199,117,0.25); color:#FAC775; }
-    .badge-moderate { background:rgba(127,119,221,0.25); color:#AFA9EC; }
-    .badge-positive { background:rgba(151,196,89,0.25); color:#C0DD97; }
-    .rec-title  { font-size:0.88rem; font-weight:700; line-height:1.3; }
-    .rec-body   { font-size:0.8rem; opacity:0.78; line-height:1.5; flex:1; }
-    .rec-action {
-        font-size:0.75rem; font-weight:600; padding:5px 9px;
-        border-radius:7px; background:rgba(255,255,255,0.07);
-        margin-top:auto; display:block; line-height:1.4;
-    }
-    .rec-bar-track { height:3px; border-radius:2px; background:rgba(255,255,255,0.07); margin-top:6px; overflow:hidden; }
-
-    /* ── Goal cards ── */
-    .goal-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:1rem; }
+    .tip-box strong { color:#AFA9EC; }
     .goal-card {
-        background:rgba(255,255,255,0.04);
-        border:1px solid rgba(255,255,255,0.09);
-        border-radius:14px; padding:1rem 1.1rem;
+        background:rgba(255,255,255,0.05);
+        border:0.5px solid rgba(255,255,255,0.12);
+        border-radius:12px; padding:1rem 1.2rem; margin-bottom:0.6rem;
+        color:inherit;
     }
-    .goal-title { font-size:0.75rem; font-weight:600; opacity:0.65; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; }
-    .goal-value { font-size:1.5rem; font-weight:800; line-height:1.1; }
-    .goal-sub   { font-size:0.78rem; opacity:0.55; margin-top:2px; }
+    .goal-title { font-size:0.85rem; font-weight:600; color:inherit; opacity:0.75; margin-bottom:6px; }
     .streak-badge {
-        display:inline-block; padding:2px 9px; border-radius:20px;
-        font-size:0.72rem; font-weight:600;
-        background:rgba(99,153,34,0.2); color:#97C459; margin-left:6px;
+        display:inline-block; padding:2px 10px; border-radius:20px;
+        font-size:0.78rem; font-weight:600;
+        background:rgba(99,153,34,0.2); color:#97C459; margin-left:8px;
     }
-    .streak-zero { background:rgba(128,128,128,0.12); color:#666; }
-
-    /* ── User chip ── */
+    .streak-zero { background:rgba(128,128,128,0.15); color:#888; }
     .user-chip {
         display:inline-block; background:rgba(83,74,183,0.2); color:#AFA9EC;
         border-radius:20px; padding:3px 12px; font-size:0.85rem; font-weight:600;
     }
-
-    /* ── Planner day cards ── */
     .day-card {
-        border:1px solid rgba(255,255,255,0.09);
-        border-radius:14px; padding:0.9rem 1rem; margin-bottom:0.6rem;
-        background:rgba(255,255,255,0.03);
+        border:0.5px solid rgba(255,255,255,0.12);
+        border-radius:12px; padding:0.8rem 1rem; margin-bottom:0.6rem;
+        background:rgba(255,255,255,0.04);
     }
     .day-header {
-        font-size:0.82rem; font-weight:700; color:#AFA9EC;
-        margin-bottom:0.5rem; letter-spacing:0.04em; text-transform:uppercase;
+        font-size:0.85rem; font-weight:600; color:#AFA9EC;
+        margin-bottom:0.5rem; letter-spacing:0.03em;
     }
     .task-row {
         display:flex; align-items:center; gap:8px;
-        padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.05);
-        font-size:0.86rem;
+        padding:5px 0; border-bottom:0.5px solid rgba(255,255,255,0.06);
+        font-size:0.88rem;
     }
     .task-row:last-child { border-bottom:none; }
-    .pri-high   { background:rgba(163,45,45,0.2);  color:#F09595; border-radius:4px; padding:1px 7px; font-size:0.72rem; font-weight:700; }
-    .pri-medium { background:rgba(186,117,23,0.2); color:#FAC775; border-radius:4px; padding:1px 7px; font-size:0.72rem; font-weight:700; }
-    .pri-low    { background:rgba(99,153,34,0.2);  color:#C0DD97; border-radius:4px; padding:1px 7px; font-size:0.72rem; font-weight:700; }
-
-    /* ── Break/insight boxes ── */
+    .pri-high   { background:rgba(163,45,45,0.2);   color:#F09595; border-radius:4px; padding:1px 7px; font-size:0.75rem; font-weight:600; }
+    .pri-medium { background:rgba(186,117,23,0.2);  color:#FAC775; border-radius:4px; padding:1px 7px; font-size:0.75rem; font-weight:600; }
+    .pri-low    { background:rgba(99,153,34,0.2);   color:#C0DD97; border-radius:4px; padding:1px 7px; font-size:0.75rem; font-weight:600; }
     .break-box {
-        background:rgba(83,74,183,0.11); border-left:4px solid #7F77DD;
-        border-radius:0 12px 12px 0; padding:0.9rem 1.1rem; margin-bottom:1rem;
+        background:rgba(83,74,183,0.12); border-left:4px solid #7F77DD;
+        border-radius:0 10px 10px 0; padding:0.9rem 1.1rem; margin-bottom:1rem;
     }
-    .break-stat { font-size:1.9rem; font-weight:800; color:#AFA9EC; display:inline-block; margin-right:0.4rem; }
-    .insight-box {
-        background:linear-gradient(135deg,rgba(83,74,183,0.18),rgba(212,83,126,0.12));
-        border:1px solid rgba(175,169,236,0.25);
-        border-radius:14px; padding:1.1rem 1.3rem; margin-bottom:1rem;
-    }
-    .insight-title { font-size:0.95rem; font-weight:700; color:#AFA9EC; margin-bottom:0.3rem; }
-    .insight-body  { font-size:0.86rem; opacity:0.83; line-height:1.6; }
-
-    /* ── Timer ── */
+    .break-stat { font-size:2rem; font-weight:700; color:#AFA9EC; display:inline-block; margin-right:0.5rem; }
+    /* ── Timer styles ── */
     .timer-container {
-        background:linear-gradient(135deg,rgba(83,74,183,0.16),rgba(212,83,126,0.10));
-        border:1px solid rgba(175,169,236,0.25);
-        border-radius:20px; padding:1.8rem 1.5rem; text-align:center; margin-bottom:1rem;
+        background: linear-gradient(135deg, rgba(83,74,183,0.18), rgba(212,83,126,0.12));
+        border: 1px solid rgba(175,169,236,0.3);
+        border-radius: 20px;
+        padding: 2rem 1.5rem;
+        text-align: center;
+        margin-bottom: 1.2rem;
     }
     .timer-display {
-        font-size:4.2rem; font-weight:800; font-family:'Courier New',monospace;
-        background:linear-gradient(135deg,#AFA9EC,#D4537E);
-        -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-        letter-spacing:0.05em; line-height:1;
+        font-size: 4.5rem;
+        font-weight: 800;
+        font-family: 'Courier New', monospace;
+        background: linear-gradient(135deg, #AFA9EC, #D4537E);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: 0.05em;
+        line-height: 1;
     }
     .timer-label {
-        font-size:0.8rem; font-weight:600; color:#AFA9EC;
-        text-transform:uppercase; letter-spacing:0.1em; margin-top:0.4rem; opacity:0.8;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #AFA9EC;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-top: 0.4rem;
+        opacity: 0.8;
     }
-    .timer-phase-study { border-top:3px solid #639922; }
-    .timer-phase-break { border-top:3px solid #534AB7; }
+    .timer-phase-study { border-top: 3px solid #639922; }
+    .timer-phase-break { border-top: 3px solid #534AB7; }
     .session-log-row {
-        display:flex; align-items:center; gap:10px; padding:6px 10px;
-        border-radius:8px; background:rgba(255,255,255,0.03); margin-bottom:3px; font-size:0.82rem;
+        display: flex; align-items: center; gap: 10px;
+        padding: 6px 10px; border-radius: 8px;
+        background: rgba(255,255,255,0.04);
+        margin-bottom: 4px; font-size: 0.84rem;
     }
-
-    /* ── Factor analysis cards ── */
-    .factor-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:1rem; }
-    .factor-card {
-        background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
-        border-radius:14px; padding:0.9rem 1rem;
+    /* ── Advanced recommendation styles ── */
+    .rec-card {
+        border-radius: 14px;
+        padding: 1.1rem 1.3rem;
+        margin-bottom: 0.75rem;
+        position: relative;
+        overflow: hidden;
     }
-    .factor-name  { font-size:0.75rem; font-weight:600; opacity:0.65; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; }
-    .factor-score { font-size:1.6rem; font-weight:800; line-height:1; margin-bottom:6px; }
-    .factor-bar-track { height:5px; border-radius:3px; background:rgba(255,255,255,0.08); overflow:hidden; }
-    .factor-bar-fill  { height:100%; border-radius:3px; }
-
-    /* ── tip-box kept for compatibility ── */
-    .tip-box {
-        background:rgba(83,74,183,0.10); border-left:4px solid #7F77DD;
-        border-radius:0 8px 8px 0; padding:0.75rem 1rem; margin-bottom:0.5rem; font-size:0.9rem;
+    .rec-critical { background: rgba(163,45,45,0.18); border-left: 5px solid #E24B4A; }
+    .rec-high     { background: rgba(186,117,23,0.18); border-left: 5px solid #FAC775; }
+    .rec-moderate { background: rgba(83,74,183,0.15);  border-left: 5px solid #7F77DD; }
+    .rec-positive { background: rgba(99,153,34,0.15);  border-left: 5px solid #97C459; }
+    .rec-header   { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    .rec-badge {
+        font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 20px;
+        text-transform: uppercase; letter-spacing: 0.05em;
     }
-    .tip-box strong { color:#AFA9EC; }
+    .badge-critical { background: rgba(226,75,74,0.3); color: #F09595; }
+    .badge-high     { background: rgba(250,199,117,0.3); color: #FAC775; }
+    .badge-moderate { background: rgba(127,119,221,0.3); color: #AFA9EC; }
+    .badge-positive { background: rgba(151,196,89,0.3); color: #C0DD97; }
+    .rec-title  { font-size: 0.95rem; font-weight: 700; }
+    .rec-body   { font-size: 0.87rem; opacity: 0.85; line-height: 1.55; margin: 0; }
+    .rec-action {
+        margin-top: 8px; padding: 5px 10px; border-radius: 6px;
+        font-size: 0.8rem; font-weight: 600;
+        background: rgba(255,255,255,0.08);
+        display: inline-block; opacity: 0.9;
+    }
+    .rec-score-bar {
+        height: 4px; border-radius: 2px; margin-top: 10px;
+        background: rgba(255,255,255,0.08);
+        overflow: hidden;
+    }
+    .insight-box {
+        background: linear-gradient(135deg, rgba(83,74,183,0.2), rgba(212,83,126,0.15));
+        border: 1px solid rgba(175,169,236,0.3);
+        border-radius: 14px; padding: 1.2rem 1.4rem; margin-bottom: 1rem;
+    }
+    .insight-title { font-size: 1rem; font-weight: 700; color: #AFA9EC; margin-bottom: 0.4rem; }
+    .insight-body  { font-size: 0.88rem; opacity: 0.85; line-height: 1.6; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -324,7 +265,13 @@ def verify_user(username: str, password: str):
 # ── Session data helpers ──────────────────────────────────────────────────────
 
 def save_session(user_id, stress_score, stress_level,
-                 sleep, study, screen, anxiety, exercise):
+                 sleep, study, screen, anxiety, exercise,
+                 entry_date=None):
+    if entry_date is None:
+        entry_date = datetime.date.today()
+    ts        = datetime.datetime.combine(entry_date, datetime.time(12, 0))
+    timestamp = ts.strftime("%Y-%m-%d %H:%M")
+    day_label = ts.strftime("%a %d %b")
     conn = get_db()
     conn.execute("""
         INSERT INTO sessions
@@ -332,9 +279,7 @@ def save_session(user_id, stress_score, stress_level,
              sleep,study,screen,anxiety,exercise)
         VALUES (?,?,?,?,?,?,?,?,?,?)
     """, (
-        user_id,
-        datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),
-        datetime.datetime.now().strftime("%a %d %b"),
+        user_id, timestamp, day_label,
         stress_score, stress_level,
         sleep, study, screen, anxiety, exercise
     ))
@@ -649,112 +594,372 @@ def week_progress(hdf, g_sleep, g_study, g_exercise, g_screen):
 # ═════════════════════════════════════════════════════════════════════════════
 
 def show_main_app(user: dict):
+    import calendar as cal_mod
     model, scaler, meta = load_model()
     MODEL_READY = model is not None
     user_id  = user["id"]
     username = user["username"]
 
-    # ── Header ───────────────────────────────────────────────────────────────
-    h1, h2 = st.columns([5,1])
-    with h1:
-        st.markdown('<div class="main-title">🧠 Student Stress Monitor</div>',
-                    unsafe_allow_html=True)
-        st.caption("AI-powered stress prediction • personalized tips • trend tracking")
-    with h2:
-        st.markdown(f'<div style="text-align:right;padding-top:0.5rem;">'
-                    f'<span class="user-chip">👤 {username}</span></div>',
-                    unsafe_allow_html=True)
-        if st.button("Sign out", use_container_width=True):
-            del st.session_state["user"]
-            st.rerun()
-
     history_df  = load_sessions(user_id)
     saved_goals = load_goals(user_id)
 
-    if MODEL_READY:
-        acc = meta.get('accuracy',0)
-        c1,c2,c3 = st.columns(3)
-        c1.metric("ML Model",       meta.get('best_model','Loaded'))
-        c2.metric("Model Accuracy", f"{acc*100:.1f}%")
-        c3.metric("Sessions logged",str(len(history_df)))
-    else:
-        st.warning("⚠️ ML model not found. Run `python src/train_model.py` to enable AI predictions.")
+    # ── Page state ────────────────────────────────────────────────────────────
+    if "page" not in st.session_state:
+        st.session_state["page"] = "dashboard"
 
-    st.divider()
+    # ── Top navbar ────────────────────────────────────────────────────────────
+    nav_pages = [
+        ("dashboard", "📊 Dashboard"),
+        ("entry",     "✏️ New Entry"),
+        ("history",   "📈 History"),
+        ("goals",     "🎯 Goals"),
+        ("planner",   "📅 Planner"),
+    ]
+    n1,n2,n3,n4,n5,nr = st.columns([1.3,1.1,1,1,1,1.3])
+    for col,(pg_key,pg_label) in zip([n1,n2,n3,n4,n5], nav_pages):
+        with col:
+            is_active = st.session_state["page"] == pg_key
+            if st.button(pg_label, use_container_width=True,
+                         type="primary" if is_active else "secondary",
+                         key=f"nav_{pg_key}"):
+                st.session_state["page"] = pg_key
+                st.rerun()
+    with nr:
+        st.markdown(
+            f'<div style="text-align:right;padding-top:2px;">' +
+            f'<span class="user-chip">👤 {username}</span></div>',
+            unsafe_allow_html=True)
+        if st.button("Sign out", use_container_width=True, key="so_btn"):
+            del st.session_state["user"]; st.rerun()
 
-    # ── Sidebar ───────────────────────────────────────────────────────────────
-    with st.sidebar:
-        st.markdown(f"### 👤 {username}")
-        st.markdown("---")
-        st.header("📥 Enter Today's Data")
+    st.markdown("<hr style='margin:0.5rem 0 1rem;border-color:rgba(255,255,255,0.07);'>",
+                unsafe_allow_html=True)
 
-        st.markdown("#### 📚 Academic")
-        study       = st.slider("Study hours / day",           0.0,16.0,6.0,0.5)
-        assignments = st.slider("Assignments pending",          0,  15,  3)
-        exam        = st.slider("Exam pressure (1–10)",         1,  10,  5)
-        performance = st.slider("Academic performance (1–10)",  1,  10,  7)
+    current_page = st.session_state["page"]
 
-        st.markdown("#### 🏃 Lifestyle")
-        sleep    = st.slider("Sleep hours / night",             2.0,12.0,7.0,0.5)
-        exercise = st.slider("Exercise days / week",            0,  7,   3)
-        social   = st.slider("Social interactions / week",      0,  20,  5)
-        screen   = st.slider("Screen time hours / day",         0.0,16.0,4.0,0.5)
-
-        st.markdown("#### 🧠 Mental & Social")
-        anxiety  = st.slider("Anxiety level (1–10)",            1,  10,  4)
-        finance  = st.slider("Financial stress (1–10)",         1,  10,  3)
-        family   = st.slider("Family support (1–10)",           1,  10,  7)
-        peer     = st.slider("Peer pressure (1–10)",            1,  10,  4)
-        extra    = st.selectbox("Extracurricular activities",[0,1,2],
-                    format_func=lambda x:['None','1–2 activities','3+ activities'][x])
-        rel      = st.selectbox("Relationship situation",[0,1,2],
-                    format_func=lambda x:['Single / N/A','Stable relationship','Relationship issues'][x])
-
+    # ═══════════════════════════════════════════════════════════════════════════
+    # PAGE: NEW ENTRY
+    # ═══════════════════════════════════════════════════════════════════════════
+    if current_page == "entry":
+        st.markdown('<div class="main-title">✏️ Log a New Entry</div>', unsafe_allow_html=True)
+        st.caption("Pick a date on the calendar, fill in your details, and save.")
         st.divider()
-        save_btn = st.button("💾 Save Today's Entry",
-                             use_container_width=True, type="primary")
 
-    # ── Stress computation ─────────────────────────────────────────────────────
-    raw = (
-        max(0,study-8)*3.5 + assignments*2.5 + (exam-1)*5.0
-        + max(0,7-sleep)*4.0 + max(0,5-exercise)*2.0
-        + max(0,8-social)*1.5 + max(0,screen-4)*2.0
-        + (anxiety-1)*4.5 + (finance-1)*3.0
-        - (family-1)*2.5 - (performance-1)*2.0 + (peer-1)*2.5
-        + (5 if extra==0 else 0) + (8 if rel==2 else 0)
-    )
-    stress_score = int(np.clip(raw,0,100))
+        # Calendar data
+        hdf_cal = history_df.copy() if not history_df.empty else pd.DataFrame()
+        if not hdf_cal.empty:
+            hdf_cal["stress_score"] = pd.to_numeric(hdf_cal["stress_score"], errors="coerce")
+            hdf_cal["cal_date"]     = pd.to_datetime(hdf_cal["timestamp"]).dt.date
+            date_stress = hdf_cal.groupby("cal_date")["stress_score"].mean().to_dict()
+            date_level  = hdf_cal.groupby("cal_date")["stress_level"].last().to_dict()
+        else:
+            date_stress = {}; date_level = {}
 
-    if MODEL_READY:
-        inp = np.array([[study,assignments,exam,performance,
-                         sleep,exercise,social,screen,
-                         anxiety,finance,family,peer,extra,rel]])
-        inp_sc     = scaler.transform(inp)
-        pred_class = int(model.predict(inp_sc)[0])
-        pred_proba = model.predict_proba(inp_sc)[0]
-        level_name = LABELS[pred_class]
+        today = datetime.date.today()
+        if "cal_year"   not in st.session_state: st.session_state["cal_year"]   = today.year
+        if "cal_month"  not in st.session_state: st.session_state["cal_month"]  = today.month
+        if "entry_date" not in st.session_state: st.session_state["entry_date"] = today
+
+        cy = st.session_state["cal_year"]
+        cm = st.session_state["cal_month"]
+
+        cal_col, form_col = st.columns([1, 1.4])
+
+        # ── Calendar ─────────────────────────────────────────────────────────
+        with cal_col:
+            st.markdown('<div class="section-header">📅 Select Date</div>', unsafe_allow_html=True)
+
+            # Month navigation
+            mn1,mn2,mn3 = st.columns([1,3,1])
+            with mn1:
+                if st.button("◀", key="cal_prev"):
+                    if cm==1: st.session_state["cal_month"]=12; st.session_state["cal_year"]-=1
+                    else:     st.session_state["cal_month"]-=1
+                    st.rerun()
+            with mn2:
+                st.markdown(
+                    f'<div style="text-align:center;font-weight:700;font-size:1rem;' +
+                    f'color:#AFA9EC;padding-top:4px;">{cal_mod.month_name[cm]} {cy}</div>',
+                    unsafe_allow_html=True)
+            with mn3:
+                if st.button("▶", key="cal_next"):
+                    if cm==12: st.session_state["cal_month"]=1; st.session_state["cal_year"]+=1
+                    else:      st.session_state["cal_month"]+=1
+                    st.rerun()
+
+            def stress_bg(score):
+                if score is None: return "rgba(255,255,255,0.04)"
+                if score>=75:     return "rgba(163,45,45,0.55)"
+                if score>=55:     return "rgba(153,60,29,0.50)"
+                if score>=30:     return "rgba(186,117,23,0.45)"
+                return                   "rgba(99,153,34,0.45)"
+
+            def stress_border(score):
+                if score is None: return "rgba(255,255,255,0.1)"
+                if score>=75:     return "#E24B4A"
+                if score>=55:     return "#D85A30"
+                if score>=30:     return "#EF9F27"
+                return                   "#639922"
+
+            cal_mod.setfirstweekday(6)
+            month_weeks   = cal_mod.monthcalendar(cy, cm)
+            selected_date = st.session_state["entry_date"]
+
+            # Build calendar HTML
+            cal_html = """
+<style>
+.ssm-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-top:6px;}
+.ssm-ch{text-align:center;font-size:0.68rem;font-weight:700;color:#555;
+         padding:3px 0;text-transform:uppercase;letter-spacing:0.04em;}
+.ssm-cd{border-radius:10px;padding:5px 3px 4px;text-align:center;
+         font-size:0.8rem;font-weight:600;border:2px solid transparent;
+         min-height:48px;display:flex;flex-direction:column;
+         align-items:center;justify-content:center;gap:2px;
+         transition:transform .12s;}
+.ssm-cd:hover{transform:scale(1.06);}
+.ssm-num{font-size:0.84rem;line-height:1;}
+.ssm-sc{font-size:0.6rem;opacity:0.8;line-height:1;}
+.ssm-dot{width:5px;height:5px;border-radius:50%;}
+</style>
+<div class="ssm-cal">"""
+
+            for d in ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]:
+                cal_html += f'<div class="ssm-ch">{d}</div>'
+
+            for week in month_weeks:
+                for day in week:
+                    if day == 0:
+                        cal_html += '<div></div>'; continue
+                    d_obj  = datetime.date(cy, cm, day)
+                    score  = date_stress.get(d_obj)
+                    bg     = stress_bg(score)
+                    border = stress_border(score)
+                    is_sel = d_obj == selected_date
+                    is_tod = d_obj == today
+                    is_fut = d_obj > today
+
+                    ring    = "box-shadow:0 0 0 3px #AFA9EC,0 0 0 5px rgba(175,169,236,0.2);" if is_sel else ""
+                    op      = "opacity:0.3;pointer-events:none;" if is_fut else ""
+                    dash    = "border-style:dashed;" if is_tod and not is_sel else ""
+                    sc_html = f'<div class="ssm-sc">{score:.0f}</div>' if score is not None else ""
+                    dot_col = border if score is not None else "transparent"
+                    dot     = f'<div class="ssm-dot" style="background:{dot_col};"></div>'
+
+                    _score_tip = f" • {score:.0f}" if score is not None else ""
+                    cal_html += (
+                        '<div class="ssm-cd" ' +
+                        f'style="background:{bg};border-color:{border};{ring}{op}{dash}" ' +
+                        f'title="{d_obj:%b %d}{_score_tip}">' +
+                        f'<div class="ssm-num">{day}</div>{sc_html}{dot}</div>'
+                    )
+
+            cal_html += "</div>"
+            st.markdown(cal_html, unsafe_allow_html=True)
+
+            # Date picker below calendar
+            st.markdown("<div style='margin-top:0.7rem'></div>", unsafe_allow_html=True)
+            picked = st.date_input("Pick date", value=selected_date,
+                                   max_value=today, key="dpick",
+                                   label_visibility="collapsed")
+            if picked != st.session_state["entry_date"]:
+                st.session_state["entry_date"] = picked
+                st.session_state["cal_year"]   = picked.year
+                st.session_state["cal_month"]  = picked.month
+                st.rerun()
+
+            # Legend
+            st.markdown("""
+<div style="display:flex;gap:8px;margin-top:0.6rem;flex-wrap:wrap;">
+  <span style="font-size:0.7rem;color:#555;display:flex;align-items:center;gap:4px;">
+    <span style="width:9px;height:9px;border-radius:3px;background:rgba(99,153,34,0.6);
+                 border:1.5px solid #639922;display:inline-block;"></span>Low</span>
+  <span style="font-size:0.7rem;color:#555;display:flex;align-items:center;gap:4px;">
+    <span style="width:9px;height:9px;border-radius:3px;background:rgba(186,117,23,0.55);
+                 border:1.5px solid #EF9F27;display:inline-block;"></span>Moderate</span>
+  <span style="font-size:0.7rem;color:#555;display:flex;align-items:center;gap:4px;">
+    <span style="width:9px;height:9px;border-radius:3px;background:rgba(153,60,29,0.55);
+                 border:1.5px solid #D85A30;display:inline-block;"></span>High</span>
+  <span style="font-size:0.7rem;color:#555;display:flex;align-items:center;gap:4px;">
+    <span style="width:9px;height:9px;border-radius:3px;background:rgba(163,45,45,0.6);
+                 border:1.5px solid #E24B4A;display:inline-block;"></span>Critical</span>
+  <span style="font-size:0.7rem;color:#555;display:flex;align-items:center;gap:4px;">
+    <span style="width:9px;height:9px;border-radius:3px;border:1.5px dashed #AFA9EC;
+                 display:inline-block;"></span>Today</span>
+</div>""", unsafe_allow_html=True)
+
+        # ── Entry form ────────────────────────────────────────────────────────
+        with form_col:
+            sel_date = st.session_state["entry_date"]
+            existing_level = date_level.get(sel_date)
+            existing_score = date_stress.get(sel_date)
+
+            if existing_level:
+                ec = {"Low":"#639922","Moderate":"#EF9F27","High":"#D85A30","Critical":"#E24B4A"}.get(existing_level,"#888")
+                st.markdown(
+                    f'<div style="background:rgba(255,255,255,0.04);border:1px solid {ec}44;' +
+                    f'border-left:4px solid {ec};border-radius:12px;padding:0.8rem 1rem;margin-bottom:0.8rem;">' +
+                    f'<div style="font-size:0.72rem;color:#777;text-transform:uppercase;letter-spacing:0.05em;">' +
+                    f'Existing entry — {sel_date:%A, %d %b %Y}</div>' +
+                    f'<div style="font-size:1.3rem;font-weight:800;color:{ec};">{existing_level} Stress</div>' +
+                    f'<div style="font-size:0.82rem;color:#888;">Score: {existing_score:.0f}/100</div></div>',
+                    unsafe_allow_html=True)
+            else:
+                st.markdown(
+                    f'<div style="background:rgba(83,74,183,0.1);border:1px solid rgba(175,169,236,0.2);' +
+                    f'border-radius:12px;padding:0.8rem 1rem;margin-bottom:0.8rem;">' +
+                    f'<div style="font-size:0.72rem;color:#777;text-transform:uppercase;letter-spacing:0.05em;">Logging entry for</div>' +
+                    f'<div style="font-size:1.1rem;font-weight:700;color:#AFA9EC;">{sel_date:%A, %d %b %Y}</div>' +
+                    f'<div style="font-size:0.8rem;color:#666;">No entry yet</div></div>',
+                    unsafe_allow_html=True)
+
+            with st.form("entry_form"):
+                fc1, fc2 = st.columns(2)
+                with fc1:
+                    st.markdown("**📚 Academic**")
+                    study       = st.slider("Study hrs/day",          0.0,16.0,6.0,0.5,key="e_study")
+                    assignments = st.slider("Assignments pending",    0,  15,  3,      key="e_asgn")
+                    exam        = st.slider("Exam pressure (1–10)",   1,  10,  5,      key="e_exam")
+                    performance = st.slider("Performance (1–10)",     1,  10,  7,      key="e_perf")
+                    st.markdown("**🏃 Lifestyle**")
+                    sleep    = st.slider("Sleep hrs/night",           2.0,12.0,7.0,0.5,key="e_sleep")
+                    exercise = st.slider("Exercise days/week",        0,  7,   3,      key="e_exer")
+                    social   = st.slider("Social interactions/week",  0,  20,  5,      key="e_soc")
+                with fc2:
+                    st.markdown("**🧠 Mental & Social**")
+                    screen   = st.slider("Screen time hrs/day",       0.0,16.0,4.0,0.5,key="e_screen")
+                    anxiety  = st.slider("Anxiety level (1–10)",      1,  10,  4,      key="e_anx")
+                    finance  = st.slider("Financial stress (1–10)",   1,  10,  3,      key="e_fin")
+                    family   = st.slider("Family support (1–10)",     1,  10,  7,      key="e_fam")
+                    peer     = st.slider("Peer pressure (1–10)",      1,  10,  4,      key="e_peer")
+                    extra    = st.selectbox("Extracurricular",        [0,1,2],
+                                format_func=lambda x:["None","1–2","3+"][x], key="e_extra")
+                    rel      = st.selectbox("Relationship status",    [0,1,2],
+                                format_func=lambda x:["Single/N/A","Stable","Issues"][x], key="e_rel")
+                save_btn = st.form_submit_button("💾 Save Entry",
+                                                 use_container_width=True, type="primary")
+
+            # Compute live stress
+            raw = (
+                max(0,study-8)*3.5 + assignments*2.5 + (exam-1)*5.0
+                + max(0,7-sleep)*4.0 + max(0,5-exercise)*2.0
+                + max(0,8-social)*1.5 + max(0,screen-4)*2.0
+                + (anxiety-1)*4.5 + (finance-1)*3.0
+                - (family-1)*2.5 - (performance-1)*2.0 + (peer-1)*2.5
+                + (5 if extra==0 else 0) + (8 if rel==2 else 0)
+            )
+            stress_score = int(np.clip(raw,0,100))
+            if MODEL_READY:
+                inp        = np.array([[study,assignments,exam,performance,
+                                        sleep,exercise,social,screen,
+                                        anxiety,finance,family,peer,extra,rel]])
+                inp_sc     = scaler.transform(inp)
+                pred_class = int(model.predict(inp_sc)[0])
+                pred_proba = model.predict_proba(inp_sc)[0]
+                level_name = LABELS[pred_class]
+            else:
+                pred_proba = None; pred_class = 0
+                if   stress_score>74: level_name="Critical"
+                elif stress_score>54: level_name="High"
+                elif stress_score>29: level_name="Moderate"
+                else:                 level_name="Low"
+
+            level_color = COLORS[level_name]
+            level_emoji = EMOJIS[level_name]
+            recovery    = int(((exercise/7)*0.4+(sleep/10)*0.4+(social/20)*0.2)*100)
+            burnout     = min(100,int(stress_score*0.6+max(0,study-8)*4+max(0,10-sleep)*3))
+
+            # Live result cards
+            rc1, rc2 = st.columns(2)
+            with rc1:
+                st.markdown(
+                    f'<div style="background:rgba(255,255,255,0.04);border:1px solid {level_color}55;' +
+                    f'border-top:4px solid {level_color};border-radius:14px;padding:1rem 1.1rem;margin-top:0.5rem;">' +
+                    f'<div style="font-size:0.72rem;color:#888;text-transform:uppercase;letter-spacing:0.05em;">Live Result</div>' +
+                    f'<div style="font-size:1.8rem;font-weight:800;color:{level_color};margin:4px 0 2px;">{level_emoji} {level_name}</div>' +
+                    f'<div style="font-size:0.85rem;color:#aaa;margin-bottom:8px;">Score: <strong style="color:#fff">{stress_score}</strong>/100</div>' +
+                    f'<div style="background:rgba(255,255,255,0.07);border-radius:5px;height:7px;overflow:hidden;">' +
+                    f'<div style="width:{stress_score}%;height:100%;background:{level_color};border-radius:5px;"></div>' +
+                    f'</div></div>',
+                    unsafe_allow_html=True)
+            with rc2:
+                st.markdown(
+                    f'<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);' +
+                    f'border-radius:14px;padding:1rem 1.1rem;margin-top:0.5rem;">' +
+                    f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">' +
+                    f'<div><div style="font-size:0.7rem;color:#666;">Recovery</div>' +
+                    f'<div style="font-size:1.4rem;font-weight:800;color:#97C459;">{recovery}%</div></div>' +
+                    f'<div><div style="font-size:0.7rem;color:#666;">Burnout Risk</div>' +
+                    f'<div style="font-size:1.4rem;font-weight:800;color:#F09595;">{burnout}</div></div>' +
+                    f'<div><div style="font-size:0.7rem;color:#666;">Sleep</div>' +
+                    f'<div style="font-size:1.4rem;font-weight:800;color:#AFA9EC;">{sleep}h</div></div>' +
+                    f'<div><div style="font-size:0.7rem;color:#666;">Study</div>' +
+                    f'<div style="font-size:1.4rem;font-weight:800;color:#AFA9EC;">{study}h</div></div>' +
+                    f'</div></div>',
+                    unsafe_allow_html=True)
+
+            if save_btn:
+                save_session(user_id, stress_score, level_name,
+                             sleep, study, screen, anxiety, exercise,
+                             entry_date=st.session_state["entry_date"])
+                st.success(f"✅ Entry saved for {sel_date:%A, %d %b %Y}!")
+                st.rerun()
+
+        return  # entry page ends
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # Shared values for all other pages (from latest session)
+    # ═══════════════════════════════════════════════════════════════════════════
+    if not history_df.empty:
+        latest       = history_df.iloc[-1]
+        study        = float(latest.get("study",    6))
+        sleep        = float(latest.get("sleep",    7))
+        screen       = float(latest.get("screen",   4))
+        anxiety      = int(  latest.get("anxiety",  4))
+        exercise     = int(  latest.get("exercise", 3))
+        assignments  = 3; exam=5; performance=7; social=5; finance=3; family=7; peer=4; extra=0; rel=0
+        stress_score = int(pd.to_numeric(latest.get("stress_score",30),errors="coerce") or 30)
+        level_name   = str(latest.get("stress_level","Low"))
     else:
-        pred_proba = None
-        if stress_score>74:   level_name='Critical'
-        elif stress_score>54: level_name='High'
-        elif stress_score>29: level_name='Moderate'
-        else:                 level_name='Low'
+        study=6;sleep=7;screen=4;anxiety=4;exercise=3;assignments=3
+        exam=5;performance=7;social=5;finance=3;family=7;peer=4;extra=0;rel=0
+        stress_score=0; level_name="Low"
 
-    level_color = COLORS[level_name]
-    level_emoji = EMOJIS[level_name]
+    level_color = COLORS.get(level_name,"#639922")
+    level_emoji = EMOJIS.get(level_name,"😊")
 
-    # ── Save entry ────────────────────────────────────────────────────────────
-    if save_btn:
-        save_session(user_id, stress_score, level_name,
-                     sleep, study, screen, anxiety, exercise)
-        st.success("✅ Entry saved!")
-        st.rerun()
+    if MODEL_READY and not history_df.empty:
+        try:
+            inp        = np.array([[study,assignments,exam,performance,
+                                    sleep,exercise,social,screen,
+                                    anxiety,finance,family,peer,extra,rel]])
+            inp_sc     = scaler.transform(inp)
+            pred_class = int(model.predict(inp_sc)[0])
+            pred_proba = model.predict_proba(inp_sc)[0]
+        except Exception:
+            pred_proba=None; pred_class=0
+    else:
+        pred_proba=None; pred_class=0
 
-    # ── Tabs ──────────────────────────────────────────────────────────────────
-    tab1,tab2,tab3,tab4,tab5,tab6 = st.tabs([
-        "📊 Stress Result","🔍 Factor Analysis",
-        "💡 Management Tips","📈 My History","🎯 My Goals","📅 Study Planner"
-    ])
+    # ═══════════════════════════════════════════════════════════════════════════
+    # PAGE: DASHBOARD  (Stress Result + Factor Analysis + Tips)
+    # ═══════════════════════════════════════════════════════════════════════════
+    if current_page == "dashboard":
+        if MODEL_READY:
+            acc=meta.get("accuracy",0)
+            c1,c2,c3=st.columns(3)
+            c1.metric("ML Model",       meta.get("best_model","Loaded"))
+            c2.metric("Model Accuracy", f"{acc*100:.1f}%")
+            c3.metric("Sessions logged",str(len(history_df)))
+        else:
+            st.warning("⚠️ ML model not found. Run `python src/train_model.py` to enable AI predictions.")
+
+        if history_df.empty:
+            st.info("👋 Welcome! Head to **✏️ New Entry** to log your first stress entry.")
+            return
+
+        tab1,tab2,tab3 = st.tabs([
+            "📊 Stress Result","🔍 Factor Analysis","💡 Management Tips"
+        ])
 
     # ══════════════════════════════════════════════════════════
     # TAB 1 — Stress Result
@@ -816,6 +1021,7 @@ def show_main_app(user: dict):
     # TAB 2 — Factor Analysis
     # ══════════════════════════════════════════════════════════
     with tab2:
+        st.markdown("#### Which factors are driving your stress?")
         factor_scores = {
             "Academic load":    min(100,int(study/16*50+assignments/15*30+exam/10*20)),
             "Sleep deficit":    min(100,int(max(0,8-sleep)/6*100)),
@@ -826,82 +1032,27 @@ def show_main_app(user: dict):
             "Screen overuse":   min(100,int(max(0,screen-4)/12*100)),
             "Exercise deficit": min(100,int(max(0,5-exercise)/5*100)),
         }
-        sorted_f = sorted(factor_scores.items(), key=lambda x: x[1], reverse=True)
+        sorted_f = sorted(factor_scores.items(),key=lambda x:x[1],reverse=True)
+        fig,ax = plt.subplots(figsize=(8,5))
+        names=[f[0] for f in sorted_f]; vals=[f[1] for f in sorted_f]
+        clrs=['#A32D2D' if v>=75 else '#993C1D' if v>=55
+              else '#BA7517' if v>=30 else '#639922' for v in vals]
+        bars = ax.barh(names,vals,color=clrs,edgecolor='white',linewidth=0.5)
+        for bar,v in zip(bars,vals):
+            ax.text(v+2,bar.get_y()+bar.get_height()/2,str(v),va='center',fontsize=10)
+        ax.axvline(55,ls='--',lw=1,color='#BA7517',alpha=0.6,label='High threshold')
+        ax.axvline(75,ls='--',lw=1,color='#A32D2D',alpha=0.6,label='Critical threshold')
+        ax.set_xlim(0,115); ax.set_xlabel("Stress contribution score")
+        ax.set_title("Stress Factor Breakdown",fontsize=13); ax.legend(fontsize=9)
+        plt.tight_layout(); st.pyplot(fig,use_container_width=True); plt.close()
 
-        factor_icons = {
-            "Academic load":"📚","Sleep deficit":"😴","Anxiety":"🧘",
-            "Financial strain":"💰","Social isolation":"👥","Peer pressure":"🤝",
-            "Screen overuse":"📱","Exercise deficit":"🏃"
-        }
-
-        # ── 4-per-row factor cards ─────────────────────────────
-        st.markdown('<div class="section-header">Stress Factor Breakdown</div>', unsafe_allow_html=True)
-        cards_html = '<div class="factor-grid">'
-        for name, val in sorted_f:
-            bar_color = ('#E24B4A' if val >= 75 else '#FAC775' if val >= 55
-                         else '#7F77DD' if val >= 30 else '#97C459')
-            score_color = ('#F09595' if val >= 75 else '#FAC775' if val >= 55
-                           else '#AFA9EC' if val >= 30 else '#C0DD97')
-            icon = factor_icons.get(name, '📊')
-            cards_html += f"""
-            <div class="factor-card">
-                <div class="factor-name">{icon} {name}</div>
-                <div class="factor-score" style="color:{score_color};">{val}</div>
-                <div class="factor-bar-track">
-                    <div class="factor-bar-fill" style="width:{val}%;background:{bar_color};"></div>
-                </div>
-                <div style="font-size:0.72rem;color:#666;margin-top:4px;">
-                    {'Critical' if val>=75 else 'High' if val>=55 else 'Moderate' if val>=30 else 'Low'}
-                </div>
-            </div>"""
-        cards_html += '</div>'
-        st.markdown(cards_html, unsafe_allow_html=True)
-
-        # ── Plotly radar of factors ────────────────────────────
-        st.markdown('<div class="section-header">Factor Radar</div>', unsafe_allow_html=True)
-        f_names = [f[0] for f in sorted_f]
-        f_vals  = [f[1] for f in sorted_f]
-        fig_fa = go.Figure()
-        fig_fa.add_trace(go.Scatterpolar(
-            r=f_vals + [f_vals[0]], theta=f_names + [f_names[0]],
-            fill='toself', fillcolor='rgba(83,74,183,0.18)',
-            line=dict(color='#AFA9EC', width=2), name='Your Score'
-        ))
-        fig_fa.add_trace(go.Scatterpolar(
-            r=[50]*len(f_names) + [50], theta=f_names + [f_names[0]],
-            fill='toself', fillcolor='rgba(226,75,74,0.05)',
-            line=dict(color='#E24B4A', width=1.2, dash='dot'), name='Warning (50)'
-        ))
-        fig_fa.update_layout(
-            polar=dict(
-                radialaxis=dict(visible=True, range=[0,100],
-                                tickfont=dict(size=9, color='#888'),
-                                gridcolor='rgba(255,255,255,0.08)'),
-                angularaxis=dict(tickfont=dict(size=10, color='#ccc'),
-                                 gridcolor='rgba(255,255,255,0.1)'),
-                bgcolor='rgba(0,0,0,0)'
-            ),
-            paper_bgcolor='rgba(0,0,0,0)',
-            legend=dict(font=dict(color='#ccc'), bgcolor='rgba(0,0,0,0)',
-                        orientation='h', y=-0.1),
-            margin=dict(t=30, b=50, l=60, r=60), height=400
-        )
-        col_r, col_l = st.columns([3, 2])
-        with col_r:
-            st.markdown('<div class="chart-card">', unsafe_allow_html=True)
-            st.plotly_chart(fig_fa, use_container_width=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-        with col_l:
-            st.markdown('<div class="section-header">Today\'s Inputs</div>', unsafe_allow_html=True)
-            snap=[("📚 Study hrs/day",f"{study}h"),("😴 Sleep hrs",f"{sleep}h"),
-                  ("🧘 Anxiety",f"{anxiety}/10"),("🏃 Exercise",f"{exercise} days"),
-                  ("📝 Assignments",str(assignments)),("💰 Financial stress",f"{finance}/10"),
-                  ("❤️ Family support",f"{family}/10"),("📱 Screen time",f"{screen}h")]
-            snap_html = '<div class="snap-grid">'
-            for label, val in snap:
-                snap_html += f'<div class="snap-card"><div class="snap-label">{label}</div><div class="snap-value">{val}</div></div>'
-            snap_html += '</div>'
-            st.markdown(snap_html, unsafe_allow_html=True)
+        st.markdown("#### Your inputs at a glance")
+        sc = st.columns(4)
+        snap=[("Study hrs/day",f"{study}h"),("Sleep hrs/night",f"{sleep}h"),
+              ("Anxiety",f"{anxiety}/10"),("Exercise days",str(exercise)),
+              ("Assignments",str(assignments)),("Financial stress",f"{finance}/10"),
+              ("Family support",f"{family}/10"),("Screen time",f"{screen}h")]
+        for i,(k,v) in enumerate(snap): sc[i%4].metric(k,v)
 
     # ══════════════════════════════════════════════════════════
     # TAB 3 — Management Tips (Advanced)
@@ -1077,31 +1228,30 @@ def show_main_app(user: dict):
         badge_labels = {CRITICAL: "Critical", HIGH: "High Priority",
                         MODERATE: "Moderate", POSITIVE: "Positive"}
 
-        active_count = len([r for r in recs if r[0] != POSITIVE])
-        st.markdown(f'<div class="section-header">💡 {active_count} Active Recommendations</div>',
-                    unsafe_allow_html=True)
+        st.markdown(f"#### 💡 {len([r for r in recs if r[0] != POSITIVE])} active recommendations")
 
-        bar_colors = {"critical":"#E24B4A","high":"#FAC775","moderate":"#7F77DD","positive":"#97C459"}
-
-        # Render in rows of 4
-        for row_start in range(0, len(recs), 4):
-            row_recs = recs[row_start:row_start+4]
-            cols = st.columns(len(row_recs))
-            for col, (severity, icon, title, body_text, action, score) in zip(cols, row_recs):
-                bar_color = bar_colors[severity]
-                bar_w = score if severity != POSITIVE else 100
-                with col:
-                    st.markdown(f"""
-                    <div class="rec-card rec-{severity}">
-                        <div class="rec-icon">{icon}</div>
-                        <span class="rec-badge badge-{severity}">{badge_labels[severity]}</span>
-                        <div class="rec-title">{title}</div>
-                        <div class="rec-body">{body_text}</div>
-                        <span class="rec-action">⚡ {action}</span>
-                        <div class="rec-bar-track">
-                            <div style="width:{bar_w}%;height:100%;background:{bar_color};border-radius:2px;"></div>
+        cols_r = st.columns(2)
+        for idx, (severity, icon, title, body, action, score) in enumerate(recs):
+            with cols_r[idx % 2]:
+                bar_color = {"critical":"#E24B4A","high":"#FAC775",
+                             "moderate":"#7F77DD","positive":"#97C459"}[severity]
+                bar_width = score if severity != POSITIVE else 100
+                st.markdown(f"""
+                <div class="rec-card rec-{severity}">
+                    <div class="rec-header">
+                        <span style="font-size:1.4rem;">{icon}</span>
+                        <div>
+                            <span class="rec-badge badge-{severity}">{badge_labels[severity]}</span>
+                            <div class="rec-title">{title}</div>
                         </div>
-                    </div>""", unsafe_allow_html=True)
+                    </div>
+                    <p class="rec-body">{body}</p>
+                    <div class="rec-action">⚡ {action}</div>
+                    <div class="rec-score-bar">
+                        <div style="width:{bar_width}%;height:100%;background:{bar_color};
+                                    border-radius:2px;"></div>
+                    </div>
+                </div>""", unsafe_allow_html=True)
 
         st.divider()
 
@@ -1166,187 +1316,175 @@ def show_main_app(user: dict):
             with (p1 if i % 2 == 0 else p2):
                 st.checkbox(f"**{day}** — {action}", key=f"plan_{day}")
 
-    # ══════════════════════════════════════════════════════════
-    # TAB 4 — History
-    # ══════════════════════════════════════════════════════════
-    with tab4:
-        st.markdown('<div class="section-header">📊 Stress History</div>', unsafe_allow_html=True)
+
+
+    # PAGE: history
+    if current_page == "history":
+
+        st.markdown(f"#### Your stress history — {username}")
         if history_df.empty:
             st.info("No history yet. Fill in today's data and hit 💾 Save.")
         else:
             hdf = history_df.copy()
-            for col in ['stress_score','sleep','study','screen','anxiety','exercise']:
-                hdf[col] = pd.to_numeric(hdf[col], errors='coerce')
+            hdf['stress_score'] = pd.to_numeric(hdf['stress_score'], errors='coerce')
+            hdf['sleep']        = pd.to_numeric(hdf['sleep'],        errors='coerce')
+            hdf['study']        = pd.to_numeric(hdf['study'],        errors='coerce')
+            hdf['screen']       = pd.to_numeric(hdf['screen'],       errors='coerce')
+            hdf['anxiety']      = pd.to_numeric(hdf['anxiety'],      errors='coerce')
+            hdf['exercise']     = pd.to_numeric(hdf['exercise'],     errors='coerce')
 
-            x_labels  = hdf['day_label'].tolist()
-            avg_score  = hdf['stress_score'].mean()
-            trend      = hdf['stress_score'].iloc[-1] - hdf['stress_score'].iloc[-2] if len(hdf) > 1 else 0
-            trend_str  = f"↓ {abs(trend):.0f}" if trend < 0 else (f"↑ {trend:.0f}" if trend > 0 else "→ 0")
+            # ── Summary metrics ────────────────────────────────
+            s1, s2, s3, s4 = st.columns(4)
+            s1.metric("Sessions logged",  str(len(hdf)))
+            s2.metric("Avg stress score", f"{hdf['stress_score'].mean():.0f}")
+            s3.metric("Avg sleep",        f"{hdf['sleep'].mean():.1f}h")
+            s4.metric("Last level",       str(hdf['stress_level'].iloc[-1])
+                      if 'stress_level' in hdf.columns else "—")
 
-            # ── 4-col stat summary cards ───────────────────────
-            st.markdown(f"""
-            <div class="hist-stat-grid">
-                <div class="hist-stat-card">
-                    <div class="hist-stat-val">{len(hdf)}</div>
-                    <div class="hist-stat-label">Sessions Logged</div>
-                </div>
-                <div class="hist-stat-card">
-                    <div class="hist-stat-val">{avg_score:.0f}</div>
-                    <div class="hist-stat-label">Avg Stress Score</div>
-                </div>
-                <div class="hist-stat-card">
-                    <div class="hist-stat-val">{hdf['sleep'].mean():.1f}h</div>
-                    <div class="hist-stat-label">Avg Sleep</div>
-                </div>
-                <div class="hist-stat-card">
-                    <div class="hist-stat-val">{trend_str}</div>
-                    <div class="hist-stat-label">Last Session Trend</div>
-                </div>
-            </div>""", unsafe_allow_html=True)
+            x_labels = hdf['day_label'].tolist()
 
+            # ── Stress trend — area chart ──────────────────────
+            st.markdown("#### 📈 Stress Score Over Time")
             level_color_map = {'Low':'#639922','Moderate':'#EF9F27',
                                'High':'#D85A30','Critical':'#E24B4A'}
-            marker_colors = [level_color_map.get(l,'#AFA9EC')
-                             for l in hdf.get('stress_level',['Low']*len(hdf))]
+            marker_colors = [level_color_map.get(l, '#AFA9EC')
+                             for l in hdf.get('stress_level', ['Low'] * len(hdf))]
 
-            # ── Row 1: two charts side by side ─────────────────
-            r1c1, r1c2 = st.columns(2)
+            fig_stress = go.Figure()
+            fig_stress.add_trace(go.Scatter(
+                x=x_labels, y=hdf['stress_score'],
+                mode='lines+markers',
+                line=dict(color='#AFA9EC', width=2.5, shape='spline'),
+                marker=dict(color=marker_colors, size=9, line=dict(width=1.5, color='white')),
+                fill='tozeroy',
+                fillcolor='rgba(83,74,183,0.12)',
+                name='Stress Score',
+                hovertemplate='<b>%{x}</b><br>Score: %{y}<extra></extra>'
+            ))
+            for threshold, color, label in [(30,'#639922','Low'),
+                                            (55,'#BA7517','High'),
+                                            (75,'#A32D2D','Critical')]:
+                fig_stress.add_hline(y=threshold, line_dash='dot',
+                                     line_color=color, opacity=0.5,
+                                     annotation_text=label,
+                                     annotation_position='left',
+                                     annotation_font_color=color)
+            fig_stress.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                yaxis=dict(range=[0,105], gridcolor='rgba(255,255,255,0.07)',
+                           tickfont=dict(color='#999')),
+                xaxis=dict(gridcolor='rgba(255,255,255,0.05)',
+                           tickfont=dict(color='#999')),
+                margin=dict(t=20, b=20, l=10, r=10), height=280,
+                showlegend=False
+            )
+            st.plotly_chart(fig_stress, use_container_width=True)
 
-            with r1c1:
-                st.markdown('<div class="chart-card"><div class="chart-title">📈 Stress Score Over Time</div>', unsafe_allow_html=True)
-                fig_stress = go.Figure()
-                fig_stress.add_trace(go.Scatter(
-                    x=x_labels, y=hdf['stress_score'],
-                    mode='lines+markers',
-                    line=dict(color='#AFA9EC', width=2.5, shape='spline'),
-                    marker=dict(color=marker_colors, size=9,
-                                line=dict(width=1.5, color='rgba(0,0,0,0.3)')),
-                    fill='tozeroy', fillcolor='rgba(83,74,183,0.10)',
-                    hovertemplate='<b>%{x}</b><br>Score: %{y}<extra></extra>'
-                ))
-                for thresh, clr, lbl in [(30,'#639922','Low'),(55,'#BA7517','High'),(75,'#A32D2D','Critical')]:
-                    fig_stress.add_hline(y=thresh, line_dash='dot', line_color=clr, opacity=0.45,
-                                         annotation_text=lbl, annotation_position='right',
-                                         annotation_font_color=clr, annotation_font_size=10)
-                fig_stress.update_layout(
-                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                    yaxis=dict(range=[0,105], gridcolor='rgba(255,255,255,0.06)',
-                               tickfont=dict(color='#777', size=10)),
-                    xaxis=dict(gridcolor='rgba(255,255,255,0.04)',
-                               tickfont=dict(color='#777', size=10)),
-                    margin=dict(t=10, b=10, l=10, r=60), height=250, showlegend=False
-                )
-                st.plotly_chart(fig_stress, use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+            # ── Sleep & Study dual axis ────────────────────────
+            st.markdown("#### 📊 Sleep & Study Hours")
+            fig_dual = make_subplots(specs=[[{"secondary_y": True}]])
+            fig_dual.add_trace(go.Bar(
+                x=x_labels, y=hdf['sleep'],
+                name='Sleep (hrs)', marker_color='rgba(83,74,183,0.65)',
+                marker_line_width=0,
+                hovertemplate='Sleep: %{y}h<extra></extra>'
+            ), secondary_y=False)
+            fig_dual.add_trace(go.Scatter(
+                x=x_labels, y=hdf['study'],
+                mode='lines+markers', name='Study (hrs)',
+                line=dict(color='#D4537E', width=2.5, shape='spline'),
+                marker=dict(size=7, color='#D4537E'),
+                hovertemplate='Study: %{y}h<extra></extra>'
+            ), secondary_y=True)
+            fig_dual.add_hline(y=7, line_dash='dot', line_color='#AFA9EC',
+                               opacity=0.4, annotation_text='Sleep target',
+                               annotation_font_color='#AFA9EC')
+            fig_dual.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                legend=dict(font=dict(color='#ccc'), bgcolor='rgba(0,0,0,0)'),
+                margin=dict(t=20, b=20, l=10, r=10), height=280,
+                yaxis=dict(title='Sleep hrs', gridcolor='rgba(255,255,255,0.07)',
+                           tickfont=dict(color='#999')),
+                yaxis2=dict(title='Study hrs', tickfont=dict(color='#D4537E'))
+            )
+            st.plotly_chart(fig_dual, use_container_width=True)
 
-            with r1c2:
-                st.markdown('<div class="chart-card"><div class="chart-title">🛏 Sleep vs Study Hours</div>', unsafe_allow_html=True)
-                fig_dual = make_subplots(specs=[[{"secondary_y": True}]])
-                fig_dual.add_trace(go.Bar(
-                    x=x_labels, y=hdf['sleep'], name='Sleep (hrs)',
-                    marker_color='rgba(83,74,183,0.6)', marker_line_width=0,
-                    hovertemplate='Sleep: %{y}h<extra></extra>'
-                ), secondary_y=False)
-                fig_dual.add_trace(go.Scatter(
-                    x=x_labels, y=hdf['study'], mode='lines+markers', name='Study (hrs)',
-                    line=dict(color='#D4537E', width=2.5, shape='spline'),
-                    marker=dict(size=7, color='#D4537E'),
-                    hovertemplate='Study: %{y}h<extra></extra>'
-                ), secondary_y=True)
-                fig_dual.add_hline(y=7, line_dash='dot', line_color='#AFA9EC', opacity=0.35,
-                                   annotation_text='7h target', annotation_font_color='#AFA9EC',
-                                   annotation_font_size=9)
-                fig_dual.update_layout(
-                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                    legend=dict(font=dict(color='#aaa', size=10), bgcolor='rgba(0,0,0,0)',
-                                orientation='h', y=1.12),
-                    margin=dict(t=10, b=10, l=10, r=50), height=250,
-                    yaxis=dict(gridcolor='rgba(255,255,255,0.06)',
-                               tickfont=dict(color='#777', size=10)),
-                    yaxis2=dict(tickfont=dict(color='#D4537E', size=10))
-                )
-                st.plotly_chart(fig_dual, use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-
-            # ── Row 2: lifestyle | donut + box ─────────────────
-            r2c1, r2c2 = st.columns(2)
-
-            with r2c1:
-                st.markdown('<div class="chart-card"><div class="chart-title">📉 Lifestyle Trends</div>', unsafe_allow_html=True)
-                if all(c in hdf.columns for c in ['screen','anxiety','exercise']):
-                    fig_multi = go.Figure()
-                    for col_, color_, label_ in [
-                        ('screen',  '#FAC775','Screen (hrs)'),
-                        ('anxiety', '#F09595','Anxiety (/10)'),
-                        ('exercise','#97C459','Exercise (days/wk)')
-                    ]:
+            # ── Multi-metric trend ─────────────────────────────
+            if all(c in hdf.columns for c in ['screen', 'anxiety', 'exercise']):
+                st.markdown("#### 📉 Lifestyle Trends")
+                fig_multi = go.Figure()
+                metric_cfg = [
+                    ('screen',   '#FAC775', 'Screen (hrs)'),
+                    ('anxiety',  '#F09595', 'Anxiety (/10)'),
+                    ('exercise', '#97C459', 'Exercise (days/wk)'),
+                ]
+                for col, color, label in metric_cfg:
+                    if col in hdf.columns:
                         fig_multi.add_trace(go.Scatter(
-                            x=x_labels, y=hdf[col_], mode='lines+markers',
-                            name=label_, line=dict(color=color_, width=2, shape='spline'),
-                            marker=dict(size=6, color=color_),
-                            hovertemplate=f'{label_}: %{{y}}<extra></extra>'
+                            x=x_labels, y=hdf[col],
+                            mode='lines+markers', name=label,
+                            line=dict(color=color, width=2, shape='spline'),
+                            marker=dict(size=6),
+                            hovertemplate=f'{label}: %{{y}}<extra></extra>'
                         ))
-                    fig_multi.update_layout(
-                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                        legend=dict(font=dict(color='#aaa', size=10), bgcolor='rgba(0,0,0,0)',
-                                    orientation='h', y=1.12),
-                        margin=dict(t=10, b=10, l=10, r=10), height=250,
-                        yaxis=dict(gridcolor='rgba(255,255,255,0.06)',
-                                   tickfont=dict(color='#777', size=10)),
-                        xaxis=dict(gridcolor='rgba(255,255,255,0.04)',
-                                   tickfont=dict(color='#777', size=10))
+                fig_multi.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    legend=dict(font=dict(color='#ccc'), bgcolor='rgba(0,0,0,0)',
+                                orientation='h', yanchor='bottom', y=1.02),
+                    margin=dict(t=40, b=20, l=10, r=10), height=280,
+                    yaxis=dict(gridcolor='rgba(255,255,255,0.07)',
+                               tickfont=dict(color='#999')),
+                    xaxis=dict(gridcolor='rgba(255,255,255,0.05)',
+                               tickfont=dict(color='#999'))
+                )
+                st.plotly_chart(fig_multi, use_container_width=True)
+
+            # ── Stress distribution donut ──────────────────────
+            if 'stress_level' in hdf.columns:
+                c_pie, c_box = st.columns([1, 1])
+                with c_pie:
+                    st.markdown("#### 🍩 Stress Distribution")
+                    level_counts = hdf['stress_level'].value_counts()
+                    fig_donut = go.Figure(go.Pie(
+                        labels=level_counts.index,
+                        values=level_counts.values,
+                        hole=0.52,
+                        marker_colors=[COLORS.get(l,'#888') for l in level_counts.index],
+                        textfont=dict(size=12),
+                        hovertemplate='%{label}: %{value} sessions (%{percent})<extra></extra>'
+                    ))
+                    fig_donut.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        legend=dict(font=dict(color='#ccc'), bgcolor='rgba(0,0,0,0)'),
+                        margin=dict(t=10, b=10, l=10, r=10), height=280,
+                        annotations=[dict(text=f"{len(hdf)}<br>sessions",
+                                          font=dict(size=13, color='#AFA9EC'),
+                                          showarrow=False)]
                     )
-                    st.plotly_chart(fig_multi, use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                    st.plotly_chart(fig_donut, use_container_width=True)
 
-            with r2c2:
-                if 'stress_level' in hdf.columns:
-                    dc1, dc2 = st.columns(2)
-                    with dc1:
-                        st.markdown('<div class="chart-card"><div class="chart-title">🍩 Distribution</div>', unsafe_allow_html=True)
-                        level_counts = hdf['stress_level'].value_counts()
-                        fig_donut = go.Figure(go.Pie(
-                            labels=level_counts.index, values=level_counts.values,
-                            hole=0.55,
-                            marker_colors=[COLORS.get(l,'#888') for l in level_counts.index],
-                            textfont=dict(size=11),
-                            hovertemplate='%{label}: %{value} (%{percent})<extra></extra>'
-                        ))
-                        fig_donut.update_layout(
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            legend=dict(font=dict(color='#aaa', size=9), bgcolor='rgba(0,0,0,0)',
-                                        orientation='h', y=-0.2),
-                            margin=dict(t=10, b=35, l=10, r=10), height=250,
-                            annotations=[dict(text=f"{len(hdf)}<br>sessions",
-                                              font=dict(size=11, color='#AFA9EC'), showarrow=False)]
-                        )
-                        st.plotly_chart(fig_donut, use_container_width=True)
-                        st.markdown('</div>', unsafe_allow_html=True)
-
-                    with dc2:
-                        st.markdown('<div class="chart-card"><div class="chart-title">📦 Score Spread</div>', unsafe_allow_html=True)
-                        BOX_FILL = {'Low':'rgba(99,153,34,0.25)','Moderate':'rgba(186,117,23,0.25)',
-                                    'High':'rgba(153,60,29,0.25)','Critical':'rgba(163,45,45,0.25)'}
-                        fig_box = go.Figure()
-                        for lvl in ['Low','Moderate','High','Critical']:
-                            lvl_data = hdf[hdf['stress_level']==lvl]['stress_score'].dropna()
-                            if not lvl_data.empty:
-                                fig_box.add_trace(go.Box(
-                                    y=lvl_data, name=lvl,
-                                    marker_color=COLORS.get(lvl,'#888'),
-                                    line_color=COLORS.get(lvl,'#888'),
-                                    fillcolor=BOX_FILL.get(lvl,'rgba(128,128,128,0.25)'),
-                                    boxmean=True
-                                ))
-                        fig_box.update_layout(
-                            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                            yaxis=dict(range=[0,105], gridcolor='rgba(255,255,255,0.06)',
-                                       tickfont=dict(color='#777', size=10)),
-                            xaxis=dict(tickfont=dict(color='#aaa', size=10)),
-                            showlegend=False, margin=dict(t=10, b=10, l=10, r=10), height=250
-                        )
-                        st.plotly_chart(fig_box, use_container_width=True)
-                        st.markdown('</div>', unsafe_allow_html=True)
+                with c_box:
+                    st.markdown("#### 📦 Score Distribution by Level")
+                    fig_box = go.Figure()
+                    for lvl in ['Low','Moderate','High','Critical']:
+                        lvl_data = hdf[hdf['stress_level'] == lvl]['stress_score'].dropna()
+                        if not lvl_data.empty:
+                            fig_box.add_trace(go.Box(
+                                y=lvl_data, name=lvl,
+                                marker_color=COLORS.get(lvl, '#888'),
+                                line_color=COLORS.get(lvl, '#888'),
+                                fillcolor={'Low':'rgba(99,153,34,0.25)','Moderate':'rgba(186,117,23,0.25)','High':'rgba(153,60,29,0.25)','Critical':'rgba(163,45,45,0.25)'}.get(lvl,'rgba(128,128,128,0.25)'),
+                                boxmean=True
+                            ))
+                    fig_box.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                        yaxis=dict(title='Stress Score', range=[0,105],
+                                   gridcolor='rgba(255,255,255,0.07)',
+                                   tickfont=dict(color='#999')),
+                        xaxis=dict(tickfont=dict(color='#999')),
+                        showlegend=False, margin=dict(t=10, b=10, l=10, r=10), height=280
+                    )
+                    st.plotly_chart(fig_box, use_container_width=True)
 
             with st.expander("📋 View raw data"):
                 st.dataframe(hdf.drop(columns=['id','user_id'], errors='ignore'),
@@ -1355,10 +1493,11 @@ def show_main_app(user: dict):
                 st.download_button("⬇️ Download CSV", csv,
                                    f"{username}_stress_history.csv", "text/csv")
 
-    # ══════════════════════════════════════════════════════════
-    # TAB 5 — Goals
-    # ══════════════════════════════════════════════════════════
-    with tab5:
+
+
+    # PAGE: goals
+    if current_page == "goals":
+
         st.markdown("#### 🎯 Set your weekly wellness goals")
         st.caption("Goals are saved per account and tracked against every session you log.")
 
@@ -1469,10 +1608,11 @@ def show_main_app(user: dict):
         if hdf_g.empty:
             st.info("💡 Start logging daily sessions to see your streaks and progress fill up!")
 
-    # ══════════════════════════════════════════════════════════
-    # TAB 6 — Study Planner
-    # ══════════════════════════════════════════════════════════
-    with tab6:
+
+
+    # PAGE: planner
+    if current_page == "planner":
+
         tasks_df = load_tasks(user_id)
 
         st.markdown("#### 📅 Study Planner")
@@ -1861,6 +2001,8 @@ def show_main_app(user: dict):
 
     st.divider()
     st.caption("🧠 Student Stress Monitor | Built with Streamlit & scikit-learn | For educational purposes only.")
+
+
 
 
 # ═════════════════════════════════════════════════════════════════════════════
