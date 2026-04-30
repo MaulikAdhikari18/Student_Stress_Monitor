@@ -2137,7 +2137,7 @@ def show_main_app(user: dict):
                     ("Avg Stress Score", f"{avg_stress_w:.0f}", f"Dominant: {dominant_w}", dc_w),
                     ("Avg Sleep/Night",  f"{avg_sleep_w:.1f}h", "Target: 7–9h", "#AFA9EC"),
                     ("Avg Study/Day",    f"{avg_study_w:.1f}h", "Recommended: ≤8h", "#AFA9EC"),
-                    ("Exercise Days",    f"{exercise_days_w}",  f"Out of {len(week_df)} logged days", "#97C459" if exercise_days_w >= 3 else "#F09595"),
+                    ("Exercise Days",    f"{exercise_days_w}/7",  f"{exercise_days_w} of 7 days this week", "#97C459" if exercise_days_w >= 3 else "#F09595"),
                 ]
                 for col, (label, val, sub, clr) in zip([wc1,wc2,wc3,wc4], cards_w):
                     col.markdown(summary_card(label, val, sub, clr), unsafe_allow_html=True)
@@ -2243,6 +2243,8 @@ def show_main_app(user: dict):
             if month_df.empty:
                 st.info("No entries this month yet.")
             else:
+                import calendar as _cal
+                days_in_month = _cal.monthrange(today.year, today.month)[1]
                 avg_stress_m  = month_df["stress_score"].mean()
                 avg_sleep_m   = month_df["sleep"].mean()
                 avg_study_m   = month_df["study"].mean()
@@ -2259,7 +2261,7 @@ def show_main_app(user: dict):
                 month_cards = [
                     ("Monthly Avg Stress", f"{avg_stress_m:.0f}", f"Dominant: {dominant_m}", dc_m),
                     ("Avg Sleep/Night",    f"{avg_sleep_m:.1f}h", f"Target: 7–9h", "#AFA9EC"),
-                    ("Exercise Days",      f"{exercise_days_m}",  f"Out of {len(month_df)} logged", "#97C459" if exercise_days_m >= 12 else "#FAC775"),
+                    ("Exercise Days",      f"{exercise_days_m}/{days_in_month}",  f"{exercise_days_m} of {days_in_month} days this month", "#97C459" if exercise_days_m >= 12 else "#FAC775"),
                     ("Avg Screen Time",    f"{avg_screen_m:.1f}h",f"Target: ≤4h/day", "#AFA9EC" if avg_screen_m <= 4 else "#F09595"),
                 ]
                 for col, (label, val, sub, clr) in zip([mc1,mc2,mc3,mc4], month_cards):
@@ -2352,7 +2354,7 @@ def show_main_app(user: dict):
                             ("📚 Study",          f"{avg_study_m:.1f}h/day",  avg_study_m <= 8,   "Target ≤8h"),
                             ("📱 Screen",         f"{avg_screen_m:.1f}h/day", avg_screen_m <= 4,  "Target ≤4h"),
                             ("🧘 Anxiety",        f"{avg_anxiety_m:.1f}/10",  avg_anxiety_m <= 5, "Target ≤5"),
-                            ("🏃 Exercise days",  f"{exercise_days_m} days",  exercise_days_m >= 12, "Target ≥12/month"),
+                            ("🏃 Exercise days",  f"{exercise_days_m}/{days_in_month}",  exercise_days_m >= 12, "Target ≥12/month"),
                             ("💯 Stress avg",     f"{avg_stress_m:.0f}/100",  avg_stress_m < 30,  "Target <30"),
                         ]
                         rows_html = ""
