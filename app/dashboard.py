@@ -7,6 +7,9 @@ import pickle
 import sqlite3
 import hashlib
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
 
 # ─── Page Config ─────────────────────────────────────────────────────────────
 
@@ -83,6 +86,83 @@ st.markdown("""
         border-radius:0 10px 10px 0; padding:0.9rem 1.1rem; margin-bottom:1rem;
     }
     .break-stat { font-size:2rem; font-weight:700; color:#AFA9EC; display:inline-block; margin-right:0.5rem; }
+    /* ── Timer styles ── */
+    .timer-container {
+        background: linear-gradient(135deg, rgba(83,74,183,0.18), rgba(212,83,126,0.12));
+        border: 1px solid rgba(175,169,236,0.3);
+        border-radius: 20px;
+        padding: 2rem 1.5rem;
+        text-align: center;
+        margin-bottom: 1.2rem;
+    }
+    .timer-display {
+        font-size: 4.5rem;
+        font-weight: 800;
+        font-family: 'Courier New', monospace;
+        background: linear-gradient(135deg, #AFA9EC, #D4537E);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: 0.05em;
+        line-height: 1;
+    }
+    .timer-label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #AFA9EC;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-top: 0.4rem;
+        opacity: 0.8;
+    }
+    .timer-phase-study { border-top: 3px solid #639922; }
+    .timer-phase-break { border-top: 3px solid #534AB7; }
+    .session-log-row {
+        display: flex; align-items: center; gap: 10px;
+        padding: 6px 10px; border-radius: 8px;
+        background: rgba(255,255,255,0.04);
+        margin-bottom: 4px; font-size: 0.84rem;
+    }
+    /* ── Advanced recommendation styles ── */
+    .rec-card {
+        border-radius: 14px;
+        padding: 1.1rem 1.3rem;
+        margin-bottom: 0.75rem;
+        position: relative;
+        overflow: hidden;
+    }
+    .rec-critical { background: rgba(163,45,45,0.18); border-left: 5px solid #E24B4A; }
+    .rec-high     { background: rgba(186,117,23,0.18); border-left: 5px solid #FAC775; }
+    .rec-moderate { background: rgba(83,74,183,0.15);  border-left: 5px solid #7F77DD; }
+    .rec-positive { background: rgba(99,153,34,0.15);  border-left: 5px solid #97C459; }
+    .rec-header   { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    .rec-badge {
+        font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 20px;
+        text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .badge-critical { background: rgba(226,75,74,0.3); color: #F09595; }
+    .badge-high     { background: rgba(250,199,117,0.3); color: #FAC775; }
+    .badge-moderate { background: rgba(127,119,221,0.3); color: #AFA9EC; }
+    .badge-positive { background: rgba(151,196,89,0.3); color: #C0DD97; }
+    .rec-title  { font-size: 0.95rem; font-weight: 700; }
+    .rec-body   { font-size: 0.87rem; opacity: 0.85; line-height: 1.55; margin: 0; }
+    .rec-action {
+        margin-top: 8px; padding: 5px 10px; border-radius: 6px;
+        font-size: 0.8rem; font-weight: 600;
+        background: rgba(255,255,255,0.08);
+        display: inline-block; opacity: 0.9;
+    }
+    .rec-score-bar {
+        height: 4px; border-radius: 2px; margin-top: 10px;
+        background: rgba(255,255,255,0.08);
+        overflow: hidden;
+    }
+    .insight-box {
+        background: linear-gradient(135deg, rgba(83,74,183,0.2), rgba(212,83,126,0.15));
+        border: 1px solid rgba(175,169,236,0.3);
+        border-radius: 14px; padding: 1.2rem 1.4rem; margin-bottom: 1rem;
+    }
+    .insight-title { font-size: 1rem; font-weight: 700; color: #AFA9EC; margin-bottom: 0.4rem; }
+    .insight-body  { font-size: 0.88rem; opacity: 0.85; line-height: 1.6; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -711,39 +791,266 @@ def show_main_app(user: dict):
         for i,(k,v) in enumerate(snap): sc[i%4].metric(k,v)
 
     # ══════════════════════════════════════════════════════════
-    # TAB 3 — Management Tips
+    # TAB 3 — Management Tips (Advanced)
     # ══════════════════════════════════════════════════════════
     with tab3:
-        st.markdown("#### Personalized recommendations")
-        tips=[]
-        if sleep<7:       tips.append(("😴 Sleep hygiene",    f"You're getting {sleep}h — below the 7–9h ideal. Set a consistent bedtime, cut caffeine after 3 PM, go screen-free 30 min before bed."))
-        if study>8:       tips.append(("📚 Study smarter",    f"Studying {study}h/day risks burnout. Try Pomodoro (25 min focus, 5 min break). Schedule a hard stop time each day."))
-        if exercise<3:    tips.append(("🏃 Get moving",       "Less than 3 exercise days/week amplifies stress. Even a 20-min walk daily reduces cortisol by ~26%."))
-        if anxiety>6:     tips.append(("🧘 Manage anxiety",   f"Anxiety at {anxiety}/10 is significant. Try box breathing: inhale 4s → hold 4s → exhale 4s → hold 4s."))
-        if social<4:      tips.append(("👥 Social connection","Low social interaction increases stress. Even one meaningful conversation daily helps."))
-        if screen>6:      tips.append(("📱 Digital detox",    f"{screen}h/day screens disrupts sleep. Try app timers and a 'no-phone hour' before bed."))
-        if finance>7:     tips.append(("💰 Financial stress", "Talk to your institution's welfare office — scholarships, emergency funds or part-time work may be available."))
-        if assignments>8: tips.append(("📝 Task overload",    f"{assignments} pending items is stressful. Use the Eisenhower matrix and tackle one high-priority item each morning."))
-        if family<4:      tips.append(("❤️ Build support",   "Low family support increases vulnerability. Campus counselors and peer mentors can help."))
-        if peer>7:        tips.append(("🤝 Peer pressure",    "High peer pressure drains energy. Practice assertive communication and spend time with people who motivate you."))
-        if not tips:      tips.append(("🌟 You're doing great!","Your indicators look balanced. Keep your routines and do weekly check-ins to catch early changes."))
 
-        for cat,tip in tips:
-            st.markdown(f'<div class="tip-box"><strong>{cat}</strong><br>{tip}</div>',
-                        unsafe_allow_html=True)
+        # ── Smart insight summary ──────────────────────────────
+        top_issue = ""
+        issue_score = 0
+        if sleep < 6 and (7 - sleep) * 15 > issue_score:
+            issue_score = int((7 - sleep) * 15); top_issue = "sleep deprivation"
+        if anxiety > 7 and anxiety * 9 > issue_score:
+            issue_score = int(anxiety * 9); top_issue = "high anxiety"
+        if study > 10 and (study - 8) * 8 > issue_score:
+            issue_score = int((study - 8) * 8); top_issue = "study overload"
+        if not top_issue:
+            top_issue = "a generally balanced profile"
+
+        recovery_days = (
+            "2–3 days" if stress_score < 35
+            else "4–5 days" if stress_score < 60
+            else "7–10 days"
+        )
+        insight_text = (
+            f"Your stress score of **{stress_score}/100** places you in the **{level_name}** zone. "
+            f"The primary driver appears to be **{top_issue}**. "
+            f"With consistent corrective action, meaningful improvement typically takes **{recovery_days}**. "
+            f"Focus on the Critical and High-priority recommendations below first."
+        ) if stress_score > 20 else (
+            f"Your stress indicators look well-balanced (score: **{stress_score}/100**). "
+            f"Maintain your current routines and log daily to catch any early drift."
+        )
+
+        st.markdown(f"""
+        <div class="insight-box">
+            <div class="insight-title">🧠 AI Stress Insight</div>
+            <div class="insight-body">{insight_text}</div>
+        </div>""", unsafe_allow_html=True)
+
+        # ── Severity-graded recommendations ───────────────────
+        CRITICAL, HIGH, MODERATE, POSITIVE = "critical", "high", "moderate", "positive"
+
+        recs = []
+
+        # Sleep
+        if sleep < 5:
+            recs.append((CRITICAL, "😴", "Severe Sleep Deficit",
+                f"Only {sleep}h sleep — this is a medical concern. Cognitive function drops 30%+ below 5h.",
+                "Go to bed in the next 2 hours. No exceptions tonight.",
+                int((7 - sleep) / 5 * 100)))
+        elif sleep < 7:
+            recs.append((HIGH, "😴", "Sleep Below Threshold",
+                f"You're getting {sleep}h vs the recommended 7–9h. This raises cortisol and impairs memory consolidation.",
+                "Set a hard lights-out alarm. Try 4-7-8 breathing (inhale 4s, hold 7s, exhale 8s).",
+                int((7 - sleep) / 3 * 70)))
+        elif sleep >= 8:
+            recs.append((POSITIVE, "😴", "Great Sleep",
+                f"Excellent — {sleep}h of sleep supports memory, mood, and immune function.",
+                "Keep your consistent sleep schedule.", 0))
+
+        # Study load
+        if study > 12:
+            recs.append((CRITICAL, "📚", "Dangerous Study Load",
+                f"{study}h/day is unsustainable and counterproductive. Retention collapses after 6–7h of quality study.",
+                "Cut to max 6h today. Use Pomodoro 25/5. Schedule mandatory end-time.",
+                min(100, int((study - 8) * 12))))
+        elif study > 8:
+            recs.append((HIGH, "📚", "Study Overload Risk",
+                f"{study}h/day is above the effective threshold. Quality matters more than quantity.",
+                "Cap at 8h. Use active recall and spaced repetition for higher retention.",
+                min(100, int((study - 8) * 8))))
+
+        # Exercise
+        if exercise < 2:
+            recs.append((HIGH, "🏃", "Critical Exercise Deficit",
+                "0–1 exercise days/week significantly raises stress hormones. Exercise is one of the strongest natural anxiolytics.",
+                "Start with a 20-min walk today. You don't need a gym — just movement.",
+                80))
+        elif exercise < 3:
+            recs.append((MODERATE, "🏃", "Increase Physical Activity",
+                f"{exercise} exercise days/week is below the recommended 3–5. Even light activity reduces cortisol by ~26%.",
+                "Add 2 more days this week. Try a 15-min YouTube workout.",
+                50))
+        elif exercise >= 5:
+            recs.append((POSITIVE, "🏃", "Active & Resilient",
+                f"{exercise} exercise days/week — excellent. Exercise is your best stress buffer.",
+                "Maintain this habit. Consider adding yoga or stretching for recovery.", 0))
+
+        # Anxiety
+        if anxiety >= 8:
+            recs.append((CRITICAL, "🧘", "High Anxiety — Immediate Action Needed",
+                f"Anxiety at {anxiety}/10 is clinically significant. This is affecting your cognition and sleep.",
+                "Try box breathing NOW: inhale 4s → hold 4s → exhale 4s → hold 4s. Repeat 5×.",
+                int(anxiety * 10)))
+        elif anxiety >= 6:
+            recs.append((HIGH, "🧘", "Elevated Anxiety",
+                f"Anxiety at {anxiety}/10 is interfering with focus. Cognitive load increases sharply above 6/10.",
+                "10-min daily mindfulness practice. Apps: Headspace, Insight Timer (free tier).",
+                int(anxiety * 8)))
+
+        # Screen time
+        if screen > 8:
+            recs.append((HIGH, "📱", "Excessive Screen Time",
+                f"{screen}h/day of screens raises cortisol and disrupts melatonin production, directly worsening sleep.",
+                "Set app time limits. Use grayscale mode after 9 PM to reduce dopamine spikes.",
+                min(100, int((screen - 4) * 10))))
+        elif screen > 5:
+            recs.append((MODERATE, "📱", "Moderate Screen Overuse",
+                f"{screen}h/day is above the 4h guideline. Blue light affects sleep quality.",
+                "Use blue-light glasses or Night Shift mode. No screens 30 min before bed.",
+                min(100, int((screen - 4) * 7))))
+
+        # Financial stress
+        if finance >= 8:
+            recs.append((HIGH, "💰", "High Financial Stress",
+                "Financial stress is one of the top predictors of academic dropout and mental health issues.",
+                "Contact your institution's student welfare office today. Emergency funds may be available.",
+                int(finance * 9)))
+        elif finance >= 6:
+            recs.append((MODERATE, "💰", "Financial Pressure",
+                "Moderate financial stress is draining background mental resources.",
+                "Track expenses for 1 week. Identify one non-essential cost to cut or defer.",
+                int(finance * 6)))
+
+        # Social
+        if social < 3:
+            recs.append((HIGH, "👥", "Social Isolation Risk",
+                "Low social interaction is linked to depression and reduced stress resilience.",
+                "Schedule one 20-min call or meet-up this week. Join a study group or club.",
+                75))
+        elif social < 5:
+            recs.append((MODERATE, "👥", "Limited Social Connection",
+                "Moderate social contact — aim to increase meaningful interactions.",
+                "Even brief positive exchanges count. Say hi to a classmate daily.",
+                45))
+
+        # Assignments
+        if assignments >= 10:
+            recs.append((CRITICAL, "📝", "Task Overload",
+                f"{assignments} pending assignments creates decision paralysis and chronic low-grade panic.",
+                "Eisenhower matrix: list tasks → sort by urgent+important → do top 1 NOW.",
+                min(100, assignments * 7)))
+        elif assignments >= 6:
+            recs.append((MODERATE, "📝", "Heavy Task Queue",
+                f"{assignments} pending items. Unfinished tasks occupy working memory (Zeigarnik effect).",
+                "Write every task down — externalising it frees cognitive load immediately.",
+                min(100, assignments * 5)))
+
+        # Peer pressure
+        if peer >= 8:
+            recs.append((HIGH, "🤝", "Severe Peer Pressure",
+                f"Peer pressure at {peer}/10 is draining energy and distorting your decisions.",
+                "Practice assertive phrases: 'I'm not able to commit to that right now.' Limit time with draining people.",
+                int(peer * 9)))
+
+        # Family support
+        if family <= 3:
+            recs.append((HIGH, "❤️", "Low Support Network",
+                "Low family support increases psychological vulnerability significantly.",
+                "Campus counselors and peer mentors provide structured support — reach out today.",
+                70))
+
+        # Default positive
+        if not recs or all(r[0] == POSITIVE for r in recs):
+            recs.append((POSITIVE, "🌟", "Strong Wellbeing Profile",
+                "Your indicators are well-balanced. You're in the top tier for student wellbeing.",
+                "Do weekly check-ins to detect drift early. Share what's working with peers.", 0))
+
+        # Sort: critical → high → moderate → positive
+        order = {CRITICAL: 0, HIGH: 1, MODERATE: 2, POSITIVE: 3}
+        recs.sort(key=lambda r: order[r[0]])
+
+        badge_labels = {CRITICAL: "Critical", HIGH: "High Priority",
+                        MODERATE: "Moderate", POSITIVE: "Positive"}
+
+        st.markdown(f"#### 💡 {len([r for r in recs if r[0] != POSITIVE])} active recommendations")
+
+        cols_r = st.columns(2)
+        for idx, (severity, icon, title, body, action, score) in enumerate(recs):
+            with cols_r[idx % 2]:
+                bar_color = {"critical":"#E24B4A","high":"#FAC775",
+                             "moderate":"#7F77DD","positive":"#97C459"}[severity]
+                bar_width = score if severity != POSITIVE else 100
+                st.markdown(f"""
+                <div class="rec-card rec-{severity}">
+                    <div class="rec-header">
+                        <span style="font-size:1.4rem;">{icon}</span>
+                        <div>
+                            <span class="rec-badge badge-{severity}">{badge_labels[severity]}</span>
+                            <div class="rec-title">{title}</div>
+                        </div>
+                    </div>
+                    <p class="rec-body">{body}</p>
+                    <div class="rec-action">⚡ {action}</div>
+                    <div class="rec-score-bar">
+                        <div style="width:{bar_width}%;height:100%;background:{bar_color};
+                                    border-radius:2px;"></div>
+                    </div>
+                </div>""", unsafe_allow_html=True)
+
+        st.divider()
+
+        # ── Stress Radar Chart ─────────────────────────────────
+        st.markdown("#### 📡 Wellness Radar")
+        radar_cats = ['Sleep', 'Study Balance', 'Exercise', 'Social', 'Low Anxiety', 'Low Screen']
+        norm_sleep    = min(100, int(sleep / 9 * 100))
+        norm_study    = max(0, 100 - int(max(0, study - 6) / 10 * 100))
+        norm_exercise = min(100, int(exercise / 7 * 100))
+        norm_social   = min(100, int(social / 15 * 100))
+        norm_anxiety  = max(0, 100 - int((anxiety - 1) / 9 * 100))
+        norm_screen   = max(0, 100 - int(max(0, screen - 3) / 13 * 100))
+        radar_vals    = [norm_sleep, norm_study, norm_exercise,
+                         norm_social, norm_anxiety, norm_screen]
+
+        fig_radar = go.Figure()
+        fig_radar.add_trace(go.Scatterpolar(
+            r=radar_vals + [radar_vals[0]],
+            theta=radar_cats + [radar_cats[0]],
+            fill='toself',
+            fillcolor='rgba(83,74,183,0.2)',
+            line=dict(color='#AFA9EC', width=2),
+            name='Your Profile'
+        ))
+        fig_radar.add_trace(go.Scatterpolar(
+            r=[80]*len(radar_cats) + [80],
+            theta=radar_cats + [radar_cats[0]],
+            fill='toself',
+            fillcolor='rgba(99,153,34,0.06)',
+            line=dict(color='#639922', width=1.5, dash='dot'),
+            name='Target Zone'
+        ))
+        fig_radar.update_layout(
+            polar=dict(
+                radialaxis=dict(visible=True, range=[0, 100], tickfont=dict(size=9),
+                                gridcolor='rgba(255,255,255,0.1)'),
+                angularaxis=dict(gridcolor='rgba(255,255,255,0.15)'),
+                bgcolor='rgba(0,0,0,0)'
+            ),
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            showlegend=True,
+            legend=dict(font=dict(color='#ccc')),
+            margin=dict(t=30, b=30, l=30, r=30),
+            height=380
+        )
+        st.plotly_chart(fig_radar, use_container_width=True)
 
         st.divider()
         st.markdown("#### 🗓️ 7-day recovery plan")
-        for day,action in [
-            ("Day 1","Set a consistent sleep time and stick to it all week."),
-            ("Day 2","Write all pending tasks down. Cross off one small thing today."),
-            ("Day 3","Go for a 20-min walk — no phone, no earphones."),
-            ("Day 4","Call or message one friend or family member you trust."),
-            ("Day 5","Do one 25-min Pomodoro study block. Note your focus level."),
-            ("Day 6","Spend 10 min on box breathing or a simple meditation."),
-            ("Day 7","Review the week: what helped? Plan to repeat those habits."),
-        ]:
-            st.checkbox(f"**{day}** — {action}", key=f"plan_{day}")
+        plan_items = [
+            ("Day 1", "Set a consistent sleep time and stick to it all week."),
+            ("Day 2", "Write all pending tasks down. Cross off one small thing today."),
+            ("Day 3", "Go for a 20-min walk — no phone, no earphones."),
+            ("Day 4", "Call or message one friend or family member you trust."),
+            ("Day 5", "Do one 25-min Pomodoro study block. Note your focus level."),
+            ("Day 6", "Spend 10 min on box breathing or a simple meditation."),
+            ("Day 7", "Review the week: what helped? Plan to repeat those habits."),
+        ]
+        p1, p2 = st.columns(2)
+        for i, (day, action) in enumerate(plan_items):
+            with (p1 if i % 2 == 0 else p2):
+                st.checkbox(f"**{day}** — {action}", key=f"plan_{day}")
 
     # ══════════════════════════════════════════════════════════
     # TAB 4 — History
@@ -754,44 +1061,172 @@ def show_main_app(user: dict):
             st.info("No history yet. Fill in today's data and hit 💾 Save.")
         else:
             hdf = history_df.copy()
-            hdf['stress_score'] = pd.to_numeric(hdf['stress_score'],errors='coerce')
-            hdf['sleep']        = pd.to_numeric(hdf['sleep'],       errors='coerce')
+            hdf['stress_score'] = pd.to_numeric(hdf['stress_score'], errors='coerce')
+            hdf['sleep']        = pd.to_numeric(hdf['sleep'],        errors='coerce')
+            hdf['study']        = pd.to_numeric(hdf['study'],        errors='coerce')
+            hdf['screen']       = pd.to_numeric(hdf['screen'],       errors='coerce')
+            hdf['anxiety']      = pd.to_numeric(hdf['anxiety'],      errors='coerce')
+            hdf['exercise']     = pd.to_numeric(hdf['exercise'],     errors='coerce')
 
-            s1,s2,s3,s4 = st.columns(4)
+            # ── Summary metrics ────────────────────────────────
+            s1, s2, s3, s4 = st.columns(4)
             s1.metric("Sessions logged",  str(len(hdf)))
             s2.metric("Avg stress score", f"{hdf['stress_score'].mean():.0f}")
             s3.metric("Avg sleep",        f"{hdf['sleep'].mean():.1f}h")
-            s4.metric("Last level",       str(hdf['stress_level'].iloc[-1]) if 'stress_level' in hdf.columns else "—")
+            s4.metric("Last level",       str(hdf['stress_level'].iloc[-1])
+                      if 'stress_level' in hdf.columns else "—")
 
-            st.subheader("📈 Stress Score Over Time")
-            st.line_chart(hdf.set_index('day_label')[['stress_score']].rename(
-                columns={'stress_score':'Stress'}))
+            x_labels = hdf['day_label'].tolist()
 
-            st.subheader("📊 Sleep Hours Per Session")
-            st.bar_chart(hdf.set_index('day_label')[['sleep']].rename(columns={'sleep':'Sleep'}))
+            # ── Stress trend — area chart ──────────────────────
+            st.markdown("#### 📈 Stress Score Over Time")
+            level_color_map = {'Low':'#639922','Moderate':'#EF9F27',
+                               'High':'#D85A30','Critical':'#E24B4A'}
+            marker_colors = [level_color_map.get(l, '#AFA9EC')
+                             for l in hdf.get('stress_level', ['Low'] * len(hdf))]
 
-            if 'study' in hdf.columns and 'screen' in hdf.columns:
-                st.subheader("📉 Study & Screen Time Trends")
-                trend_cols=[c for c in ['study','screen','anxiety','exercise'] if c in hdf.columns]
-                st.line_chart(hdf.set_index('day_label')[trend_cols])
+            fig_stress = go.Figure()
+            fig_stress.add_trace(go.Scatter(
+                x=x_labels, y=hdf['stress_score'],
+                mode='lines+markers',
+                line=dict(color='#AFA9EC', width=2.5, shape='spline'),
+                marker=dict(color=marker_colors, size=9, line=dict(width=1.5, color='white')),
+                fill='tozeroy',
+                fillcolor='rgba(83,74,183,0.12)',
+                name='Stress Score',
+                hovertemplate='<b>%{x}</b><br>Score: %{y}<extra></extra>'
+            ))
+            for threshold, color, label in [(30,'#639922','Low'),
+                                            (55,'#BA7517','High'),
+                                            (75,'#A32D2D','Critical')]:
+                fig_stress.add_hline(y=threshold, line_dash='dot',
+                                     line_color=color, opacity=0.5,
+                                     annotation_text=label,
+                                     annotation_position='left',
+                                     annotation_font_color=color)
+            fig_stress.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                yaxis=dict(range=[0,105], gridcolor='rgba(255,255,255,0.07)',
+                           tickfont=dict(color='#999')),
+                xaxis=dict(gridcolor='rgba(255,255,255,0.05)',
+                           tickfont=dict(color='#999')),
+                margin=dict(t=20, b=20, l=10, r=10), height=280,
+                showlegend=False
+            )
+            st.plotly_chart(fig_stress, use_container_width=True)
 
+            # ── Sleep & Study dual axis ────────────────────────
+            st.markdown("#### 📊 Sleep & Study Hours")
+            fig_dual = make_subplots(specs=[[{"secondary_y": True}]])
+            fig_dual.add_trace(go.Bar(
+                x=x_labels, y=hdf['sleep'],
+                name='Sleep (hrs)', marker_color='rgba(83,74,183,0.65)',
+                marker_line_width=0,
+                hovertemplate='Sleep: %{y}h<extra></extra>'
+            ), secondary_y=False)
+            fig_dual.add_trace(go.Scatter(
+                x=x_labels, y=hdf['study'],
+                mode='lines+markers', name='Study (hrs)',
+                line=dict(color='#D4537E', width=2.5, shape='spline'),
+                marker=dict(size=7, color='#D4537E'),
+                hovertemplate='Study: %{y}h<extra></extra>'
+            ), secondary_y=True)
+            fig_dual.add_hline(y=7, line_dash='dot', line_color='#AFA9EC',
+                               opacity=0.4, annotation_text='Sleep target',
+                               annotation_font_color='#AFA9EC')
+            fig_dual.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                legend=dict(font=dict(color='#ccc'), bgcolor='rgba(0,0,0,0)'),
+                margin=dict(t=20, b=20, l=10, r=10), height=280,
+                yaxis=dict(title='Sleep hrs', gridcolor='rgba(255,255,255,0.07)',
+                           tickfont=dict(color='#999')),
+                yaxis2=dict(title='Study hrs', tickfont=dict(color='#D4537E'))
+            )
+            st.plotly_chart(fig_dual, use_container_width=True)
+
+            # ── Multi-metric trend ─────────────────────────────
+            if all(c in hdf.columns for c in ['screen', 'anxiety', 'exercise']):
+                st.markdown("#### 📉 Lifestyle Trends")
+                fig_multi = go.Figure()
+                metric_cfg = [
+                    ('screen',   '#FAC775', 'Screen (hrs)'),
+                    ('anxiety',  '#F09595', 'Anxiety (/10)'),
+                    ('exercise', '#97C459', 'Exercise (days/wk)'),
+                ]
+                for col, color, label in metric_cfg:
+                    if col in hdf.columns:
+                        fig_multi.add_trace(go.Scatter(
+                            x=x_labels, y=hdf[col],
+                            mode='lines+markers', name=label,
+                            line=dict(color=color, width=2, shape='spline'),
+                            marker=dict(size=6),
+                            hovertemplate=f'{label}: %{{y}}<extra></extra>'
+                        ))
+                fig_multi.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    legend=dict(font=dict(color='#ccc'), bgcolor='rgba(0,0,0,0)',
+                                orientation='h', yanchor='bottom', y=1.02),
+                    margin=dict(t=40, b=20, l=10, r=10), height=280,
+                    yaxis=dict(gridcolor='rgba(255,255,255,0.07)',
+                               tickfont=dict(color='#999')),
+                    xaxis=dict(gridcolor='rgba(255,255,255,0.05)',
+                               tickfont=dict(color='#999'))
+                )
+                st.plotly_chart(fig_multi, use_container_width=True)
+
+            # ── Stress distribution donut ──────────────────────
             if 'stress_level' in hdf.columns:
-                st.subheader("🥧 Stress Level Distribution")
-                level_counts = hdf['stress_level'].value_counts()
-                fig2,ax2 = plt.subplots(figsize=(5,4))
-                clrs2=[COLORS.get(l,'#888') for l in level_counts.index]
-                ax2.pie(level_counts.values,labels=level_counts.index,colors=clrs2,
-                        autopct='%1.0f%%',startangle=140,
-                        wedgeprops={'linewidth':1,'edgecolor':'white'})
-                ax2.set_title('Sessions by stress level',fontsize=12)
-                plt.tight_layout(); st.pyplot(fig2,use_container_width=True); plt.close()
+                c_pie, c_box = st.columns([1, 1])
+                with c_pie:
+                    st.markdown("#### 🍩 Stress Distribution")
+                    level_counts = hdf['stress_level'].value_counts()
+                    fig_donut = go.Figure(go.Pie(
+                        labels=level_counts.index,
+                        values=level_counts.values,
+                        hole=0.52,
+                        marker_colors=[COLORS.get(l,'#888') for l in level_counts.index],
+                        textfont=dict(size=12),
+                        hovertemplate='%{label}: %{value} sessions (%{percent})<extra></extra>'
+                    ))
+                    fig_donut.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        legend=dict(font=dict(color='#ccc'), bgcolor='rgba(0,0,0,0)'),
+                        margin=dict(t=10, b=10, l=10, r=10), height=280,
+                        annotations=[dict(text=f"{len(hdf)}<br>sessions",
+                                          font=dict(size=13, color='#AFA9EC'),
+                                          showarrow=False)]
+                    )
+                    st.plotly_chart(fig_donut, use_container_width=True)
+
+                with c_box:
+                    st.markdown("#### 📦 Score Distribution by Level")
+                    fig_box = go.Figure()
+                    for lvl in ['Low','Moderate','High','Critical']:
+                        lvl_data = hdf[hdf['stress_level'] == lvl]['stress_score'].dropna()
+                        if not lvl_data.empty:
+                            fig_box.add_trace(go.Box(
+                                y=lvl_data, name=lvl,
+                                marker_color=COLORS.get(lvl, '#888'),
+                                line_color=COLORS.get(lvl, '#888'),
+                                fillcolor={'Low':'rgba(99,153,34,0.25)','Moderate':'rgba(186,117,23,0.25)','High':'rgba(153,60,29,0.25)','Critical':'rgba(163,45,45,0.25)'}.get(lvl,'rgba(128,128,128,0.25)'),
+                                boxmean=True
+                            ))
+                    fig_box.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                        yaxis=dict(title='Stress Score', range=[0,105],
+                                   gridcolor='rgba(255,255,255,0.07)',
+                                   tickfont=dict(color='#999')),
+                        xaxis=dict(tickfont=dict(color='#999')),
+                        showlegend=False, margin=dict(t=10, b=10, l=10, r=10), height=280
+                    )
+                    st.plotly_chart(fig_box, use_container_width=True)
 
             with st.expander("📋 View raw data"):
-                st.dataframe(hdf.drop(columns=['id','user_id'],errors='ignore'),
+                st.dataframe(hdf.drop(columns=['id','user_id'], errors='ignore'),
                              use_container_width=True)
                 csv = hdf.to_csv(index=False).encode()
-                st.download_button("⬇️ Download CSV",csv,
-                                   f"{username}_stress_history.csv","text/csv")
+                st.download_button("⬇️ Download CSV", csv,
+                                   f"{username}_stress_history.csv", "text/csv")
 
     # ══════════════════════════════════════════════════════════
     # TAB 5 — Goals
@@ -936,7 +1371,165 @@ def show_main_app(user: dict):
         </div>
         """, unsafe_allow_html=True)
 
-        # ── Add task form ──────────────────────────────────────
+        # ── Study Timer ────────────────────────────────────────
+        st.markdown("#### ⏱ Study Timer")
+
+        # Timer state initialisation
+        if 'timer_running'    not in st.session_state: st.session_state['timer_running']    = False
+        if 'timer_phase'      not in st.session_state: st.session_state['timer_phase']      = 'study'
+        if 'timer_remaining'  not in st.session_state: st.session_state['timer_remaining']  = block_min * 60
+        if 'timer_start_time' not in st.session_state: st.session_state['timer_start_time'] = None
+        if 'timer_elapsed'    not in st.session_state: st.session_state['timer_elapsed']    = 0
+        if 'sessions_done'    not in st.session_state: st.session_state['sessions_done']    = 0
+        if 'timer_log'        not in st.session_state: st.session_state['timer_log']        = []
+        if 'custom_study_min' not in st.session_state: st.session_state['custom_study_min'] = block_min
+        if 'custom_break_min' not in st.session_state: st.session_state['custom_break_min'] = break_min
+
+        t_cfg1, t_cfg2, t_cfg3 = st.columns([2, 2, 2])
+        with t_cfg1:
+            timer_mode = st.selectbox("Timer Mode",
+                ["🍅 Pomodoro (stress-adjusted)", "⚙️ Custom"],
+                key="timer_mode_sel")
+        with t_cfg2:
+            if "Custom" in timer_mode:
+                c_study = st.number_input("Study block (min)", 5, 120,
+                                          st.session_state['custom_study_min'], 5,
+                                          key="custom_study_inp")
+                st.session_state['custom_study_min'] = c_study
+            else:
+                st.markdown(f"""
+                <div style="padding:0.6rem 0.8rem;background:rgba(83,74,183,0.15);
+                            border-radius:8px;font-size:0.88rem;margin-top:1.6rem;">
+                    📋 Using <strong>{block_min}m/{break_min}m</strong>
+                    based on your stress level
+                </div>""", unsafe_allow_html=True)
+        with t_cfg3:
+            if "Custom" in timer_mode:
+                c_break = st.number_input("Break (min)", 1, 30,
+                                          st.session_state['custom_break_min'], 1,
+                                          key="custom_break_inp")
+                st.session_state['custom_break_min'] = c_break
+
+        active_study_min = (st.session_state['custom_study_min']
+                            if "Custom" in timer_mode else block_min)
+        active_break_min = (st.session_state['custom_break_min']
+                            if "Custom" in timer_mode else break_min)
+
+        # Recalculate remaining if not running and phase changed
+        if not st.session_state['timer_running']:
+            if st.session_state['timer_phase'] == 'study':
+                st.session_state['timer_remaining'] = (
+                    active_study_min * 60 - st.session_state['timer_elapsed'])
+            else:
+                st.session_state['timer_remaining'] = (
+                    active_break_min * 60 - st.session_state['timer_elapsed'])
+
+        # Compute live remaining time
+        if st.session_state['timer_running'] and st.session_state['timer_start_time']:
+            elapsed_now = int(
+                (datetime.datetime.now() - st.session_state['timer_start_time']).total_seconds()
+            ) + st.session_state['timer_elapsed']
+            total_phase = (active_study_min if st.session_state['timer_phase'] == 'study'
+                           else active_break_min) * 60
+            remaining = max(0, total_phase - elapsed_now)
+        else:
+            remaining = st.session_state['timer_remaining']
+            elapsed_now = st.session_state['timer_elapsed']
+
+        mins, secs = divmod(int(remaining), 60)
+        phase_cls  = "timer-phase-study" if st.session_state['timer_phase'] == 'study' else "timer-phase-break"
+        phase_icon = "📖" if st.session_state['timer_phase'] == 'study' else "☕"
+        phase_lbl  = "Study Block" if st.session_state['timer_phase'] == 'study' else "Break Time"
+
+        total_secs = (active_study_min if st.session_state['timer_phase'] == 'study'
+                      else active_break_min) * 60
+        pct_done   = max(0, min(100, int((1 - remaining / max(1, total_secs)) * 100)))
+
+        st.markdown(f"""
+        <div class="timer-container {phase_cls}">
+            <div class="timer-label">{phase_icon} {phase_lbl} — Session #{st.session_state['sessions_done'] + 1}</div>
+            <div class="timer-display">{mins:02d}:{secs:02d}</div>
+            <div style="margin-top:1rem;background:rgba(255,255,255,0.1);
+                        border-radius:8px;height:8px;overflow:hidden;">
+                <div style="width:{pct_done}%;height:100%;
+                            background:{'#639922' if st.session_state['timer_phase']=='study' else '#534AB7'};
+                            border-radius:8px;transition:width 0.5s ease;"></div>
+            </div>
+            <div style="font-size:0.8rem;color:#aaa;margin-top:6px;">{pct_done}% complete</div>
+        </div>""", unsafe_allow_html=True)
+
+        # Timer controls
+        btn1, btn2, btn3, btn4 = st.columns(4)
+        with btn1:
+            if st.button("▶ Start" if not st.session_state['timer_running'] else "⏸ Pause",
+                         use_container_width=True, type="primary"):
+                if not st.session_state['timer_running']:
+                    st.session_state['timer_running']    = True
+                    st.session_state['timer_start_time'] = datetime.datetime.now()
+                else:
+                    st.session_state['timer_running']  = False
+                    st.session_state['timer_elapsed']  = elapsed_now
+                    st.session_state['timer_remaining'] = remaining
+                st.rerun()
+
+        with btn2:
+            if st.button("⏭ Skip Phase", use_container_width=True):
+                # Log completed phase
+                now_str = datetime.datetime.now().strftime("%H:%M")
+                if st.session_state['timer_phase'] == 'study':
+                    st.session_state['sessions_done'] += 1
+                    st.session_state['timer_log'].append(
+                        f"✅ {now_str} — Study block #{st.session_state['sessions_done']} "
+                        f"({active_study_min}m)")
+                    st.session_state['timer_phase'] = 'break'
+                    next_secs = active_break_min * 60
+                else:
+                    st.session_state['timer_log'].append(
+                        f"☕ {now_str} — Break complete")
+                    st.session_state['timer_phase'] = 'study'
+                    next_secs = active_study_min * 60
+                st.session_state['timer_running']    = False
+                st.session_state['timer_remaining']  = next_secs
+                st.session_state['timer_elapsed']    = 0
+                st.session_state['timer_start_time'] = None
+                st.rerun()
+
+        with btn3:
+            if st.button("🔄 Reset", use_container_width=True):
+                st.session_state['timer_running']    = False
+                st.session_state['timer_phase']      = 'study'
+                st.session_state['timer_remaining']  = active_study_min * 60
+                st.session_state['timer_elapsed']    = 0
+                st.session_state['timer_start_time'] = None
+                st.rerun()
+
+        with btn4:
+            total_study_done = st.session_state['sessions_done'] * active_study_min
+            st.markdown(f"""
+            <div style="text-align:center;padding:0.4rem;background:rgba(83,74,183,0.15);
+                        border-radius:8px;font-size:0.82rem;">
+                🔥 <strong>{st.session_state['sessions_done']}</strong> sessions<br>
+                <span style="color:#AFA9EC;">{total_study_done}m studied</span>
+            </div>""", unsafe_allow_html=True)
+
+        # Auto-refresh while running
+        if st.session_state['timer_running']:
+            import time
+            time.sleep(1)
+            st.rerun()
+
+        # Session log
+        if st.session_state['timer_log']:
+            with st.expander(f"📋 Session log ({len(st.session_state['timer_log'])} entries)",
+                             expanded=False):
+                for entry in reversed(st.session_state['timer_log']):
+                    st.markdown(f'<div class="session-log-row">⏺ {entry}</div>',
+                                unsafe_allow_html=True)
+                if st.button("🗑 Clear log"):
+                    st.session_state['timer_log'] = []
+                    st.rerun()
+
+        st.divider()
         with st.expander("➕ Add a new task", expanded=tasks_df.empty):
             with st.form("add_task_form", clear_on_submit=True):
                 fc1, fc2 = st.columns(2)
