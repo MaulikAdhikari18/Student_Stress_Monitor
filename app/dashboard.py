@@ -1004,23 +1004,21 @@ def show_main_app(user: dict):
             inp_sc     = scaler.transform(inp)
             pred_class = int(model.predict(inp_sc)[0])
             pred_proba = model.predict_proba(inp_sc)[0]
-            # If rule-based score and ML label disagree at boundary zones,
-            # reconcile: use rule-based label to determine final display
+            # Rule-based class from our calibrated thresholds
             rule_class = (3 if stress_score>=75 else 2 if stress_score>=55
                           else 1 if stress_score>=30 else 0)
-            # If ML and rule differ by exactly 1 class and score is within 8pts of boundary,
-            # trust rule-based (more calibrated to our thresholds)
-            boundaries = [30, 55, 75]
-            near_boundary = any(abs(stress_score - b) <= 8 for b in boundaries)
-            if near_boundary and abs(pred_class - rule_class) <= 1:
-                pred_class = rule_class
-                # Adjust probabilities to match corrected class
+            # The ML model is systematically biased 1 class higher due to
+            # training data distribution. Always use rule_class when it gives
+            # a lower (less severe) stress level — rule-based is calibrated to
+            # our exact thresholds (0-29 Low, 30-54 Moderate, 55-74 High, 75+ Critical)
+            if pred_class > rule_class:
+                # Shift probability mass from ML class to rule class
                 if pred_proba is not None:
-                    corrected = np.zeros(4)
-                    corrected[rule_class] = pred_proba[rule_class] + pred_proba[pred_class]
-                    for i in range(4):
-                        if i != rule_class: corrected[i] = pred_proba[i]
+                    corrected = pred_proba.copy().astype(float)
+                    corrected[rule_class] += corrected[pred_class]
+                    corrected[pred_class] = 0.0
                     pred_proba = corrected
+                pred_class = rule_class
             level_name = LABELS[pred_class]
             level_color = COLORS.get(level_name, "#639922")
             level_emoji = EMOJIS.get(level_name, "😊")
@@ -2150,8 +2148,10 @@ def show_main_app(user: dict):
             week_end   = week_start + datetime.timedelta(days=6)
             month_start= today.replace(day=1)
 
-            week_df  = hdf[hdf["date"].apply(lambda d: week_start  <= d <= today)]
-            month_df = hdf[hdf["date"].apply(lambda d: month_start <= d <= today)]
+            # Keep only the LAST entry per date (most recent log for that day)
+            hdf_dedup = hdf.sort_values("entry_dt").groupby("date", as_index=False).last()
+            week_df  = hdf_dedup[hdf_dedup["date"].apply(lambda d: week_start  <= d <= today)]
+            month_df = hdf_dedup[hdf_dedup["date"].apply(lambda d: month_start <= d <= today)]
 
             LEVEL_COLOR = {"Low":"#639922","Moderate":"#EF9F27","High":"#D85A30","Critical":"#E24B4A"}
 
@@ -2181,7 +2181,10 @@ def show_main_app(user: dict):
                 avg_stress_w = week_df["stress_score"].mean()
                 avg_sleep_w  = week_df["sleep"].mean()
                 avg_study_w  = week_df["study"].mean()
-                exercise_days_w = int((week_df["exercise"].clip(0, 1) > 0).sum())
+                # Deduplicate: one exercise flag per calendar date (take max)
+                _wex            = week_df.groupby("date")["exercise"].max()
+                days_logged_w   = len(_wex)                           # unique days with any entry
+                exercise_days_w = int((_wex.clip(0, 1) > 0).sum())   # days where exercise=1
                 dominant_w   = week_df["stress_level"].mode()[0] if "stress_level" in week_df.columns else "—"
                 dc_w         = LEVEL_COLOR.get(dominant_w, "#888")
 
@@ -2189,7 +2192,11 @@ def show_main_app(user: dict):
                     ("Avg Stress Score", f"{avg_stress_w:.0f}", f"Dominant: {dominant_w}", dc_w),
                     ("Avg Sleep/Night",  f"{avg_sleep_w:.1f}h", "Target: 7–9h", "#AFA9EC"),
                     ("Avg Study/Day",    f"{avg_study_w:.1f}h", "Recommended: ≤8h", "#AFA9EC"),
-                    ("Exercise Days",    f"{exercise_days_w}/7",  f"{exercise_days_w} of 7 days this week", "#97C459" if exercise_days_w >= 3 else "#F09595"),
+                    ("Exercise Days",
+                     f"{exercise_days_w}/{days_logged_w}",
+                     f"{exercise_days_w} of {days_logged_w} logged days",
+                     "#97C459" if days_logged_w > 0 and exercise_days_w / days_logged_w >= 0.5
+                     else "#F09595"),
                 ]
                 for col, (label, val, sub, clr) in zip([wc1,wc2,wc3,wc4], cards_w):
                     col.markdown(summary_card(label, val, sub, clr), unsafe_allow_html=True)
@@ -2296,11 +2303,14 @@ def show_main_app(user: dict):
                 st.info("No entries this month yet.")
             else:
                 import calendar as _cal
-                days_in_month = _cal.monthrange(today.year, today.month)[1]
+                # days_in_month = unique dates logged this month (not calendar days)
                 avg_stress_m  = month_df["stress_score"].mean()
                 avg_sleep_m   = month_df["sleep"].mean()
                 avg_study_m   = month_df["study"].mean()
-                exercise_days_m = int((month_df["exercise"].clip(0, 1) > 0).sum())
+                # Deduplicate: one exercise flag per calendar date (take max)
+                _mex            = month_df.groupby("date")["exercise"].max()
+                days_in_month   = len(_mex)                           # unique logged days this month
+                exercise_days_m = int((_mex.clip(0, 1) > 0).sum())   # days where exercise=1
                 avg_screen_m  = month_df["screen"].mean() if "screen" in month_df.columns else 0
                 avg_anxiety_m = month_df["anxiety"].mean() if "anxiety" in month_df.columns else 0
                 dominant_m    = month_df["stress_level"].mode()[0] if "stress_level" in month_df.columns else "—"
@@ -2313,7 +2323,11 @@ def show_main_app(user: dict):
                 month_cards = [
                     ("Monthly Avg Stress", f"{avg_stress_m:.0f}", f"Dominant: {dominant_m}", dc_m),
                     ("Avg Sleep/Night",    f"{avg_sleep_m:.1f}h", f"Target: 7–9h", "#AFA9EC"),
-                    ("Exercise Days",      f"{exercise_days_m}/{days_in_month}",  f"{exercise_days_m} of {days_in_month} days this month", "#97C459" if exercise_days_m >= 12 else "#FAC775"),
+                    ("Exercise Days",
+                     f"{exercise_days_m}/{days_in_month}",
+                     f"{exercise_days_m} of {days_in_month} logged days",
+                     "#97C459" if days_in_month > 0 and exercise_days_m / days_in_month >= 0.5
+                     else "#FAC775"),
                     ("Avg Screen Time",    f"{avg_screen_m:.1f}h",f"Target: ≤4h/day", "#AFA9EC" if avg_screen_m <= 4 else "#F09595"),
                 ]
                 for col, (label, val, sub, clr) in zip([mc1,mc2,mc3,mc4], month_cards):
@@ -2406,7 +2420,10 @@ def show_main_app(user: dict):
                             ("📚 Study",          f"{avg_study_m:.1f}h/day",  avg_study_m <= 8,   "Target ≤8h"),
                             ("📱 Screen",         f"{avg_screen_m:.1f}h/day", avg_screen_m <= 4,  "Target ≤4h"),
                             ("🧘 Anxiety",        f"{avg_anxiety_m:.1f}/10",  avg_anxiety_m <= 5, "Target ≤5"),
-                            ("🏃 Exercise days",  f"{exercise_days_m}/{days_in_month}",  exercise_days_m >= 12, "Target ≥12/month"),
+                            ("🏃 Exercise days",
+                             f"{exercise_days_m}/{days_in_month}",
+                             days_in_month > 0 and exercise_days_m / days_in_month >= 0.5,
+                             f"Target ≥50% of logged days"),
                             ("💯 Stress avg",     f"{avg_stress_m:.0f}/100",  avg_stress_m < 30,  "Target <30"),
                         ]
                         rows_html = ""
@@ -2436,8 +2453,9 @@ def show_main_app(user: dict):
                     m_insights.append(("🌿", f"{low_days} Low-stress days this month — great resilience!", "#97C459"))
                 if avg_sleep_m < 6.5:
                     m_insights.append(("💤", f"Monthly average sleep is only {avg_sleep_m:.1f}h — chronic sleep deficit detected.", "#FAC775"))
-                if exercise_days_m < 8:
-                    m_insights.append(("🏃", f"Only {exercise_days_m} exercise days logged. Aim for at least 12–15 this month.", "#FAC775"))
+                ex_rate_m = exercise_days_m / days_in_month if days_in_month > 0 else 0
+                if ex_rate_m < 0.5 and days_in_month >= 3:
+                    m_insights.append(("🏃", f"Exercised on {exercise_days_m} of {days_in_month} logged days ({ex_rate_m*100:.0f}%). Try to hit at least 50% of your logged days.", "#FAC775"))
                 if not m_insights:
                     m_insights.append(("🎉", "Excellent month! Your wellness indicators are consistently healthy.", "#97C459"))
 
