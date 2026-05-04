@@ -983,7 +983,8 @@ def show_main_app(user: dict):
         anxiety      = int(  latest.get("anxiety",  4))
         exercise     = int(  latest.get("exercise", 3))
         assignments  = 3; exam=5; performance=7; social=5; finance=3; family=7; peer=4; extra=0; rel=0
-        stress_score = int(pd.to_numeric(latest.get("stress_score",30),errors="coerce") or 30)
+        _raw_score   = pd.to_numeric(latest.get("stress_score", None), errors="coerce")
+        stress_score = int(_raw_score) if pd.notna(_raw_score) else 30
         level_name   = str(latest.get("stress_level","Low"))
     else:
         study=6;sleep=7;screen=4;anxiety=4;exercise=3;assignments=3
@@ -996,7 +997,6 @@ def show_main_app(user: dict):
     if MODEL_READY and not history_df.empty:
         try:
             # exercise stored as 0/1 per day; model trained on 0-7 weekly scale
-            # map: 0 -> 0 (no exercise), 1 -> 5 (active day ≈ good weekly habit)
             exercise_ml = 5 if int(exercise) >= 1 else 0
             inp        = np.array([[study,assignments,exam,performance,
                                     sleep,exercise_ml,social,screen,
@@ -1004,6 +1004,26 @@ def show_main_app(user: dict):
             inp_sc     = scaler.transform(inp)
             pred_class = int(model.predict(inp_sc)[0])
             pred_proba = model.predict_proba(inp_sc)[0]
+            # If rule-based score and ML label disagree at boundary zones,
+            # reconcile: use rule-based label to determine final display
+            rule_class = (3 if stress_score>=75 else 2 if stress_score>=55
+                          else 1 if stress_score>=30 else 0)
+            # If ML and rule differ by exactly 1 class and score is within 8pts of boundary,
+            # trust rule-based (more calibrated to our thresholds)
+            boundaries = [30, 55, 75]
+            near_boundary = any(abs(stress_score - b) <= 8 for b in boundaries)
+            if near_boundary and abs(pred_class - rule_class) <= 1:
+                pred_class = rule_class
+                # Adjust probabilities to match corrected class
+                if pred_proba is not None:
+                    corrected = np.zeros(4)
+                    corrected[rule_class] = pred_proba[rule_class] + pred_proba[pred_class]
+                    for i in range(4):
+                        if i != rule_class: corrected[i] = pred_proba[i]
+                    pred_proba = corrected
+            level_name = LABELS[pred_class]
+            level_color = COLORS.get(level_name, "#639922")
+            level_emoji = EMOJIS.get(level_name, "😊")
         except Exception:
             pred_proba=None; pred_class=0
     else:
@@ -1058,13 +1078,42 @@ def show_main_app(user: dict):
 
             with col_right:
                 if MODEL_READY and pred_proba is not None:
-                    fig,ax = plt.subplots(figsize=(4,4))
-                    ax.pie(pred_proba, labels=LABELS,
-                           colors=['#639922','#EF9F27','#D85A30','#E24B4A'],
-                           autopct='%1.1f%%', startangle=140,
-                           wedgeprops={'linewidth':1,'edgecolor':'white'})
-                    ax.set_title('Probability Distribution',fontsize=11,pad=8)
-                    st.pyplot(fig,use_container_width=True); plt.close()
+                    _proba_vals = [float(p) for p in pred_proba]
+                    _pull = [0.05 if i == pred_class else 0 for i in range(4)]
+                    fig_prob = go.Figure(go.Pie(
+                        labels=LABELS,
+                        values=_proba_vals,
+                        hole=0.45,
+                        pull=_pull,
+                        marker=dict(
+                            colors=['#639922','#EF9F27','#D85A30','#E24B4A'],
+                            line=dict(color='#1a1a2e', width=2)
+                        ),
+                        textinfo='percent',
+                        textposition='inside',
+                        insidetextorientation='radial',
+                        hovertemplate='<b>%{label}</b><br>%{percent}<extra></extra>',
+                        sort=False,
+                    ))
+                    fig_prob.update_layout(
+                        title=dict(text='Probability Distribution',
+                                   font=dict(size=13, color='#ccc'),
+                                   x=0.5, xanchor='center'),
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        legend=dict(
+                            orientation='v', x=1.02, y=0.5,
+                            font=dict(color='#ccc', size=11),
+                            bgcolor='rgba(0,0,0,0)'
+                        ),
+                        margin=dict(t=40, b=10, l=10, r=80),
+                        height=300,
+                        annotations=[dict(
+                            text=f"{_proba_vals[pred_class]*100:.0f}%",
+                            x=0.5, y=0.5, showarrow=False,
+                            font=dict(size=18, color=COLORS.get(LABELS[pred_class],'#fff'), family='Arial'),
+                        )]
+                    )
+                    st.plotly_chart(fig_prob, use_container_width=True)
                 else:
                     fig,ax = plt.subplots(figsize=(4,1.5))
                     ax.barh(['Stress'],[stress_score],color=level_color,height=0.5)
