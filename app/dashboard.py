@@ -995,8 +995,11 @@ def show_main_app(user: dict):
 
     if MODEL_READY and not history_df.empty:
         try:
+            # exercise stored as 0/1 per day; model trained on 0-7 weekly scale
+            # map: 0 -> 0 (no exercise), 1 -> 5 (active day ≈ good weekly habit)
+            exercise_ml = 5 if int(exercise) >= 1 else 0
             inp        = np.array([[study,assignments,exam,performance,
-                                    sleep,exercise,social,screen,
+                                    sleep,exercise_ml,social,screen,
                                     anxiety,finance,family,peer,extra,rel]])
             inp_sc     = scaler.transform(inp)
             pred_class = int(model.predict(inp_sc)[0])
