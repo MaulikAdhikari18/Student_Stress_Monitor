@@ -460,6 +460,183 @@ def get_break_schedule(stress_score):
 # AUTH PAGE
 # ═════════════════════════════════════════════════════════════════════════════
 
+def show_landing_page():
+    """Full-screen hero landing page shown before login."""
+    st.markdown("""
+    <style>
+    /* Hide streamlit default chrome on landing */
+    #MainMenu, footer, header { visibility: hidden; }
+
+    .landing-hero {
+        text-align: center;
+        padding: 3rem 1rem 2rem;
+    }
+    .landing-logo {
+        font-size: 5rem;
+        line-height: 1;
+        margin-bottom: 0.5rem;
+    }
+    .landing-title {
+        font-size: 3rem;
+        font-weight: 900;
+        background: linear-gradient(135deg, #AFA9EC, #D4537E);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: -0.02em;
+        margin-bottom: 0.4rem;
+    }
+    .landing-sub {
+        font-size: 1.15rem;
+        color: #aaa;
+        margin-bottom: 2.5rem;
+        max-width: 520px;
+        margin-left: auto;
+        margin-right: auto;
+        line-height: 1.6;
+    }
+    .feature-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        max-width: 860px;
+        margin: 0 auto 2.5rem;
+    }
+    .feature-card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(175,169,236,0.18);
+        border-radius: 16px;
+        padding: 1.3rem 1.1rem;
+        text-align: left;
+    }
+    .feature-icon { font-size: 1.8rem; margin-bottom: 0.5rem; }
+    .feature-title { font-size: 0.95rem; font-weight: 700; color: #AFA9EC; margin-bottom: 0.3rem; }
+    .feature-desc  { font-size: 0.82rem; color: #888; line-height: 1.5; }
+
+    .stat-row {
+        display: flex;
+        justify-content: center;
+        gap: 40px;
+        margin-bottom: 2.5rem;
+    }
+    .stat-item { text-align: center; }
+    .stat-val  { font-size: 2rem; font-weight: 800; color: #AFA9EC; line-height: 1; }
+    .stat-lbl  { font-size: 0.78rem; color: #666; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    .tech-bar {
+        display: flex; justify-content: center; gap: 10px;
+        flex-wrap: wrap; margin-bottom: 2rem;
+    }
+    .tech-pill {
+        background: rgba(83,74,183,0.15);
+        border: 1px solid rgba(175,169,236,0.25);
+        border-radius: 20px;
+        padding: 4px 14px;
+        font-size: 0.8rem;
+        color: #AFA9EC;
+        font-weight: 600;
+    }
+    .cta-note { font-size: 0.8rem; color: #555; margin-top: 0.5rem; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # ── Hero ──────────────────────────────────────────────────────────
+    st.markdown("""
+    <div class="landing-hero">
+        <div class="landing-logo">🧠</div>
+        <div class="landing-title">Student Stress Monitor</div>
+        <div class="landing-sub">
+            An AI-powered daily wellness companion that tracks your stress,
+            predicts burnout before it happens, and helps you study smarter.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Stats row ─────────────────────────────────────────────────────
+    st.markdown("""
+    <div class="stat-row">
+        <div class="stat-item">
+            <div class="stat-val">14</div>
+            <div class="stat-lbl">Daily inputs tracked</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-val">81.5%</div>
+            <div class="stat-lbl">Model accuracy</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-val">4</div>
+            <div class="stat-lbl">Stress levels predicted</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-val">6</div>
+            <div class="stat-lbl">Dashboard pages</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Feature cards ─────────────────────────────────────────────────
+    st.markdown("""
+    <div class="feature-grid">
+        <div class="feature-card">
+            <div class="feature-icon">📅</div>
+            <div class="feature-title">Calendar Logging</div>
+            <div class="feature-desc">Log any day directly from a colour-coded stress calendar. See your entire month at a glance.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🤖</div>
+            <div class="feature-title">ML Prediction</div>
+            <div class="feature-desc">GradBoost classifier predicts Low / Moderate / High / Critical with confidence probabilities.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">💡</div>
+            <div class="feature-title">Smart Recommendations</div>
+            <div class="feature-desc">Severity-graded action cards sorted by urgency — Critical issues always appear first.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📊</div>
+            <div class="feature-title">Rich Analytics</div>
+            <div class="feature-desc">5 interactive Plotly charts — stress trends, sleep vs study, lifestyle heatmap, and more.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📋</div>
+            <div class="feature-title">Weekly & Monthly Summary</div>
+            <div class="feature-desc">7-day heatmap, sparklines, best/worst day callouts, and metric pass/fail grid.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">⏱️</div>
+            <div class="feature-title">Study Timer</div>
+            <div class="feature-desc">Pomodoro timer with stress-adaptive block lengths and session logging built right in.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Tech pills ────────────────────────────────────────────────────
+    st.markdown("""
+    <div class="tech-bar">
+        <span class="tech-pill">🐍 Python</span>
+        <span class="tech-pill">⚡ Streamlit</span>
+        <span class="tech-pill">🤖 scikit-learn</span>
+        <span class="tech-pill">📈 Plotly</span>
+        <span class="tech-pill">🗃️ SQLite</span>
+        <span class="tech-pill">🐼 pandas</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── CTA buttons ───────────────────────────────────────────────────
+    _, c1, c2, _ = st.columns([1.5, 1, 1, 1.5])
+    with c1:
+        if st.button("🚀 Get Started", use_container_width=True, type="primary"):
+            st.session_state["show_landing"] = False
+            st.rerun()
+    with c2:
+        if st.button("🔑 Sign In", use_container_width=True):
+            st.session_state["show_landing"] = False
+            st.rerun()
+
+    st.markdown('<div class="cta-note" style="text-align:center;">'
+                '🔒 Free · Private · All data stored locally on your device'
+                '</div>', unsafe_allow_html=True)
+
+
 def show_auth_page():
     st.markdown("""
     <div style="text-align:center;padding:2.5rem 0 1rem;">
@@ -587,6 +764,265 @@ def week_progress(hdf, g_sleep, g_study, g_exercise, g_screen):
         met = (vals>=goal_val) if direction=="gte" else (vals<=goal_val)
         pct[key] = int(met.sum()/len(vals)*100)
     return pct
+
+
+
+def generate_stress_report(user, history_df, stress_score, level_name,
+                            level_color, sleep, study, screen, anxiety,
+                            exercise, pred_proba, LABELS, COLORS):
+    """Generate a one-page PDF stress report using reportlab."""
+    import io
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors as rl_colors
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer,
+                                     Table, TableStyle, HRFlowable)
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                            leftMargin=18*mm, rightMargin=18*mm,
+                            topMargin=14*mm, bottomMargin=14*mm)
+
+    # ── Colour map ─────────────────────────────────────────────────
+    LEVEL_HEX = {'Low':'#639922','Moderate':'#BA7517','High':'#993C1D','Critical':'#A32D2D'}
+    hex_to_rl = lambda h: rl_colors.HexColor(h)
+
+    lc = hex_to_rl(LEVEL_HEX.get(level_name, '#534AB7'))
+    PRIMARY = rl_colors.HexColor('#534AB7')
+    ACCENT  = rl_colors.HexColor('#D4537E')
+    DARK    = rl_colors.HexColor('#1E1B3A')
+    LIGHT   = rl_colors.HexColor('#F4F3FC')
+    MUTED   = rl_colors.HexColor('#888888')
+    WHITE   = rl_colors.white
+    BLACK   = rl_colors.HexColor('#1A1A2E')
+
+    # ── Styles ─────────────────────────────────────────────────────
+    def sty(name, **kw):
+        return ParagraphStyle(name, **kw)
+
+    S = {
+        'title':   sty('title',   fontSize=24, textColor=PRIMARY,    fontName='Helvetica-Bold', alignment=TA_LEFT, spaceAfter=2),
+        'sub':     sty('sub',     fontSize=10, textColor=MUTED,       fontName='Helvetica',      alignment=TA_LEFT, spaceAfter=8),
+        'h2':      sty('h2',      fontSize=13, textColor=PRIMARY,     fontName='Helvetica-Bold', spaceBefore=10, spaceAfter=4),
+        'body':    sty('body',    fontSize=9,  textColor=BLACK,       fontName='Helvetica',      spaceAfter=4, leading=14),
+        'badge':   sty('badge',   fontSize=20, textColor=lc,          fontName='Helvetica-Bold', alignment=TA_LEFT, spaceAfter=2),
+        'score':   sty('score',   fontSize=11, textColor=MUTED,       fontName='Helvetica',      spaceAfter=6),
+        'centre':  sty('centre',  fontSize=9,  textColor=MUTED,       fontName='Helvetica',      alignment=TA_CENTER),
+        'rec_title':sty('rt',     fontSize=9,  textColor=BLACK,       fontName='Helvetica-Bold', spaceAfter=1),
+        'rec_body': sty('rb',     fontSize=8,  textColor=rl_colors.HexColor('#444444'), fontName='Helvetica', spaceAfter=2, leading=12),
+        'footer':  sty('footer',  fontSize=7,  textColor=MUTED,       fontName='Helvetica',      alignment=TA_CENTER),
+    }
+
+    import datetime as _dt
+    today_str = _dt.date.today().strftime('%A, %d %B %Y')
+    username  = user.get('username', 'Student').title()
+
+    story = []
+
+    # ── Header band ────────────────────────────────────────────────
+    header_data = [[
+        Paragraph(f'<b>Student Stress Monitor</b>', sty('hd', fontSize=14, textColor=WHITE, fontName='Helvetica-Bold')),
+        Paragraph(f'Wellness Report · {today_str}', sty('hd2', fontSize=9, textColor=rl_colors.HexColor('#ccccff'), fontName='Helvetica', alignment=TA_RIGHT)),
+    ]]
+    header_tbl = Table(header_data, colWidths=[105*mm, 65*mm])
+    header_tbl.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,-1), PRIMARY),
+        ('TEXTCOLOR',  (0,0), (-1,-1), WHITE),
+        ('ALIGN',      (1,0), (1,0),   'RIGHT'),
+        ('VALIGN',     (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING', (0,0), (-1,-1), 8),
+        ('BOTTOMPADDING',(0,0),(-1,-1),8),
+        ('LEFTPADDING',(0,0), (-1,-1), 10),
+        ('RIGHTPADDING',(0,0),(-1,-1), 10),
+        ('ROUNDEDCORNERS', [4]),
+    ]))
+    story.append(header_tbl)
+    story.append(Spacer(1, 8*mm))
+
+    # ── Student + stress result row ────────────────────────────────
+    emoji_map = {'Low':'Low Stress','Moderate':'Moderate Stress',
+                 'High':'High Stress','Critical':'Critical Stress'}
+    result_left = [
+        [Paragraph(f'Student', sty('sl',fontSize=8,textColor=MUTED,fontName='Helvetica'))],
+        [Paragraph(f'<b>{username}</b>', sty('sn',fontSize=13,textColor=BLACK,fontName='Helvetica-Bold'))],
+        [Spacer(1, 4)],
+        [Paragraph(f'{emoji_map.get(level_name,level_name)}', S['badge'])],
+        [Paragraph(f'Stress Score: <b>{stress_score} / 100</b>', S['score'])],
+    ]
+    # Score bar as a table row
+    filled = max(1, int(stress_score * 0.82))
+    empty  = 82 - filled
+    bar_data = [['']*filled + ['']*empty]
+    bar_tbl = Table(bar_data, colWidths=[1*mm]*82, rowHeights=[4*mm])
+    bar_style = [
+        ('BACKGROUND',(0,0),(filled-1,0), lc),
+        ('BACKGROUND',(filled,0),(81,0),  rl_colors.HexColor('#E8E8F0')),
+        ('LEFTPADDING',(0,0),(-1,-1),0),
+        ('RIGHTPADDING',(0,0),(-1,-1),0),
+        ('TOPPADDING',(0,0),(-1,-1),0),
+        ('BOTTOMPADDING',(0,0),(-1,-1),0),
+    ]
+    if filled > 0:
+        bar_style.append(('ROUNDEDCORNERS',[2]))
+    bar_tbl.setStyle(TableStyle(bar_style))
+    result_left.append([bar_tbl])
+
+    # Probability column
+    prob_rows = [[Paragraph('<b>ML Confidence</b>', sty('pc',fontSize=8,textColor=MUTED,fontName='Helvetica-Bold'))]]
+    LEVEL_COLS = {'Low':'#639922','Moderate':'#BA7517','High':'#993C1D','Critical':'#A32D2D'}
+    if pred_proba is not None:
+        for i, lbl in enumerate(LABELS):
+            pct = float(pred_proba[i]) * 100
+            bar_w = max(1, int(pct * 0.5))
+            bc = rl_colors.HexColor(LEVEL_COLS.get(lbl,'#888'))
+            mini_bar = Table([['']*bar_w + ['']*(50-bar_w)],
+                              colWidths=[1*mm]*50, rowHeights=[3*mm])
+            mini_bar.setStyle(TableStyle([
+                ('BACKGROUND',(0,0),(bar_w-1,0), bc),
+                ('BACKGROUND',(bar_w,0),(49,0),  rl_colors.HexColor('#EEEEEE')),
+                ('LEFTPADDING',(0,0),(-1,-1),0),('RIGHTPADDING',(0,0),(-1,-1),0),
+                ('TOPPADDING',(0,0),(-1,-1),0),('BOTTOMPADDING',(0,0),(-1,-1),0),
+            ]))
+            prob_rows.append([
+                Table([[
+                    Paragraph(f'{lbl}', sty(f'pl{i}',fontSize=8,textColor=rl_colors.HexColor(LEVEL_COLS.get(lbl,'#888')),fontName='Helvetica-Bold')),
+                    mini_bar,
+                    Paragraph(f'{pct:.1f}%', sty(f'pp{i}',fontSize=8,textColor=BLACK,fontName='Helvetica')),
+                ]], colWidths=[18*mm, 25*mm, 12*mm])
+            ])
+    else:
+        prob_rows.append([Paragraph('Rule-based score used', S['body'])])
+
+    result_tbl = Table(
+        [[Table(result_left, colWidths=[88*mm]), Table(prob_rows, colWidths=[82*mm])]],
+        colWidths=[92*mm, 82*mm]
+    )
+    result_tbl.setStyle(TableStyle([
+        ('BACKGROUND',(0,0),(-1,-1), LIGHT),
+        ('VALIGN',(0,0),(-1,-1),'TOP'),
+        ('TOPPADDING',(0,0),(-1,-1),10),
+        ('BOTTOMPADDING',(0,0),(-1,-1),10),
+        ('LEFTPADDING',(0,0),(-1,-1),10),
+        ('RIGHTPADDING',(0,0),(-1,-1),10),
+        ('BOX',(0,0),(-1,-1),1,rl_colors.HexColor('#C5C2E8')),
+        ('ROUNDEDCORNERS',[6]),
+    ]))
+    story.append(result_tbl)
+    story.append(Spacer(1, 5*mm))
+
+    # ── Today's inputs grid ────────────────────────────────────────
+    story.append(Paragraph("Today's Inputs", S['h2']))
+    exer_txt = 'Yes' if int(exercise) >= 1 else 'No'
+    input_data = [
+        ['Sleep', f'{sleep}h', 'Study', f'{study}h', 'Screen', f'{screen}h'],
+        ['Anxiety', f'{anxiety}/10', 'Exercise', exer_txt, 'Score', f'{stress_score}/100'],
+    ]
+    in_tbl = Table(input_data, colWidths=[22*mm,28*mm,22*mm,28*mm,22*mm,28*mm])
+    in_tbl.setStyle(TableStyle([
+        ('BACKGROUND',(0,0),(0,-1), PRIMARY),('TEXTCOLOR',(0,0),(0,-1),WHITE),
+        ('BACKGROUND',(2,0),(2,-1), PRIMARY),('TEXTCOLOR',(2,0),(2,-1),WHITE),
+        ('BACKGROUND',(4,0),(4,-1), PRIMARY),('TEXTCOLOR',(4,0),(4,-1),WHITE),
+        ('BACKGROUND',(1,0),(1,-1), LIGHT),
+        ('BACKGROUND',(3,0),(3,-1), LIGHT),
+        ('BACKGROUND',(5,0),(5,-1), LIGHT),
+        ('FONTNAME',(0,0),(-1,-1),'Helvetica'),
+        ('FONTSIZE',(0,0),(-1,-1),8),
+        ('ALIGN',(0,0),(-1,-1),'CENTER'),
+        ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+        ('TOPPADDING',(0,0),(-1,-1),5),('BOTTOMPADDING',(0,0),(-1,-1),5),
+        ('GRID',(0,0),(-1,-1),0.5,rl_colors.HexColor('#C5C2E8')),
+        ('ROUNDEDCORNERS',[4]),
+    ]))
+    story.append(in_tbl)
+    story.append(Spacer(1, 5*mm))
+
+    # ── Top recommendations ────────────────────────────────────────
+    story.append(Paragraph('Top Recommendations', S['h2']))
+
+    RECS = []
+    if float(sleep) < 7:
+        RECS.append(('High','Sleep Below Target',
+                     f'Only {sleep}h of sleep. Target 7-9h. Set a fixed bedtime tonight.'))
+    if float(study) > 8:
+        RECS.append(('High','Study Overload',
+                     f'{study}h of study today. Sustainable limit is 8h. Schedule a hard stop.'))
+    if int(exercise) == 0:
+        RECS.append(('Moderate','No Exercise Today',
+                     'Exercise is the strongest natural stress reducer. Even a 20-min walk helps.'))
+    if float(screen) > 4:
+        RECS.append(('Moderate','High Screen Time',
+                     f'{screen}h screen time. Limit to 4h. No screens 30 min before bed.'))
+    if int(anxiety) >= 7:
+        RECS.append(('Critical','High Anxiety',
+                     f'Anxiety at {anxiety}/10. Try box breathing: inhale 4s, hold 4s, exhale 4s.'))
+    if not RECS:
+        RECS.append(('Positive','Great Balance',
+                     'All key metrics are within healthy ranges. Keep up the consistent habits.'))
+
+    REC_COLORS = {'Critical':'#A32D2D','High':'#BA7517','Moderate':'#534AB7','Positive':'#639922'}
+    for sev, title, desc in RECS[:4]:
+        rc = rl_colors.HexColor(REC_COLORS.get(sev,'#534AB7'))
+        rec_row = Table([[
+            Table([[Paragraph(f'<b>{sev}</b>', sty(f'rs{sev}',fontSize=7,textColor=WHITE,fontName='Helvetica-Bold',alignment=TA_CENTER))]], colWidths=[16*mm], rowHeights=[5*mm]),
+            Table([[Paragraph(f'<b>{title}</b>', S['rec_title'])],[Paragraph(desc, S['rec_body'])]], colWidths=[148*mm]),
+        ]], colWidths=[18*mm, 150*mm])
+        rec_row.setStyle(TableStyle([
+            ('BACKGROUND',(0,0),(0,0), rc),
+            ('BACKGROUND',(1,0),(1,0), rl_colors.HexColor('#F8F7FF')),
+            ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+            ('LEFTPADDING',(0,0),(-1,-1),6),('RIGHTPADDING',(0,0),(-1,-1),6),
+            ('TOPPADDING',(0,0),(-1,-1),5),('BOTTOMPADDING',(0,0),(-1,-1),5),
+            ('BOX',(0,0),(-1,-1),0.5,rl_colors.HexColor('#C5C2E8')),
+        ]))
+        story.append(rec_row)
+        story.append(Spacer(1, 2*mm))
+
+    # ── Session history summary ────────────────────────────────────
+    if not history_df.empty:
+        story.append(Spacer(1, 3*mm))
+        story.append(Paragraph('Session History Summary', S['h2']))
+        hdf = history_df.copy()
+        hdf['stress_score'] = _pd_to_numeric(hdf['stress_score'])
+        avg_s = hdf['stress_score'].mean()
+        sessions = len(hdf)
+        best_s   = hdf['stress_score'].min()
+        worst_s  = hdf['stress_score'].max()
+
+        hist_data = [
+            ['Metric', 'Value', 'Metric', 'Value'],
+            ['Total sessions', str(sessions), 'Avg stress score', f'{avg_s:.0f}'],
+            ['Best score (lowest)', f'{best_s:.0f}', 'Worst score (highest)', f'{worst_s:.0f}'],
+        ]
+        hist_tbl = Table(hist_data, colWidths=[42*mm,46*mm,42*mm,42*mm])
+        hist_tbl.setStyle(TableStyle([
+            ('BACKGROUND',(0,0),(-1,0),PRIMARY),('TEXTCOLOR',(0,0),(-1,0),WHITE),
+            ('BACKGROUND',(0,1),(0,-1),LIGHT),('BACKGROUND',(2,1),(2,-1),LIGHT),
+            ('FONTNAME',(0,0),(-1,-1),'Helvetica'),('FONTSIZE',(0,0),(-1,-1),8),
+            ('ALIGN',(0,0),(-1,-1),'CENTER'),('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+            ('TOPPADDING',(0,0),(-1,-1),5),('BOTTOMPADDING',(0,0),(-1,-1),5),
+            ('GRID',(0,0),(-1,-1),0.5,rl_colors.HexColor('#C5C2E8')),
+        ]))
+        story.append(hist_tbl)
+
+    # ── Footer ─────────────────────────────────────────────────────
+    story.append(Spacer(1, 6*mm))
+    story.append(HRFlowable(width='100%', thickness=0.5, color=rl_colors.HexColor('#C5C2E8')))
+    story.append(Spacer(1, 2*mm))
+    story.append(Paragraph(
+        f'Student Stress Monitor · {today_str} · For educational purposes only · Data stored locally',
+        S['footer']
+    ))
+
+    doc.build(story)
+    buf.seek(0)
+    return buf.read()
+
+
+def _pd_to_numeric(series):
+    import pandas as pd
+    return pd.to_numeric(series, errors='coerce').fillna(0)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -1132,6 +1568,37 @@ def show_main_app(user: dict):
             m2.metric("Study load",    study_load)
             m3.metric("Recovery score",f"{recovery}%")
             m4.metric("Burnout risk",  f"{burnout}/100")
+
+            # ── PDF Report Download ───────────────────────────────────
+            st.divider()
+            st.markdown('<div class="section-header">📄 Export Report</div>',
+                        unsafe_allow_html=True)
+            rpt_col1, rpt_col2 = st.columns([2, 1])
+            with rpt_col1:
+                st.markdown(
+                    '<div style="font-size:0.88rem;color:#888;padding-top:0.4rem;">'
+                    'Generate a one-page PDF summary of your current stress level, '
+                    'inputs, ML confidence, and top recommendations.</div>',
+                    unsafe_allow_html=True)
+            with rpt_col2:
+                try:
+                    pdf_bytes = generate_stress_report(
+                        user, history_df, stress_score, level_name,
+                        level_color, sleep, study, screen, anxiety,
+                        exercise, pred_proba, LABELS, COLORS
+                    )
+                    import datetime as _dt2
+                    fn = f"stress_report_{user["username"]}_{_dt2.date.today()}.pdf"
+                    st.download_button(
+                        label="⬇️ Download PDF Report",
+                        data=pdf_bytes,
+                        file_name=fn,
+                        mime="application/pdf",
+                        use_container_width=True,
+                        type="primary"
+                    )
+                except Exception as e:
+                    st.error(f"PDF generation failed: {e}")
 
         # ══════════════════════════════════════════════════════════
         # TAB 2 — Factor Analysis
@@ -2477,7 +2944,13 @@ def show_main_app(user: dict):
 # ROUTER
 # ═════════════════════════════════════════════════════════════════════════════
 
-if "user" not in st.session_state or st.session_state["user"] is None:
+# Show landing page on very first visit
+if "show_landing" not in st.session_state:
+    st.session_state["show_landing"] = True
+
+if st.session_state.get("show_landing", True):
+    show_landing_page()
+elif "user" not in st.session_state or st.session_state["user"] is None:
     show_auth_page()
 else:
     show_main_app(st.session_state["user"])
