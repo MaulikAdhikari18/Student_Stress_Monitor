@@ -1904,171 +1904,264 @@ def show_main_app(user: dict):
     # PAGE: history
     if current_page == "history":
 
-        st.markdown(f"#### Your stress history — {username}")
+        st.markdown(f'<div class="main-title">📈 Stress History</div>', unsafe_allow_html=True)
+        st.caption(f"All logged sessions for {username}")
+
         if history_df.empty:
-            st.info("No history yet. Fill in today's data and hit 💾 Save.")
+            st.info("No history yet. Head to ✏️ New Entry to log your first session.")
         else:
             hdf = history_df.copy()
-            hdf['stress_score'] = pd.to_numeric(hdf['stress_score'], errors='coerce')
-            hdf['sleep']        = pd.to_numeric(hdf['sleep'],        errors='coerce')
-            hdf['study']        = pd.to_numeric(hdf['study'],        errors='coerce')
-            hdf['screen']       = pd.to_numeric(hdf['screen'],       errors='coerce')
-            hdf['anxiety']      = pd.to_numeric(hdf['anxiety'],      errors='coerce')
-            hdf['exercise']     = pd.to_numeric(hdf['exercise'],     errors='coerce')
-
-            # ── Summary metrics ────────────────────────────────
-            s1, s2, s3, s4 = st.columns(4)
-            s1.metric("Sessions logged",  str(len(hdf)))
-            s2.metric("Avg stress score", f"{hdf['stress_score'].mean():.0f}")
-            s3.metric("Avg sleep",        f"{hdf['sleep'].mean():.1f}h")
-            s4.metric("Last level",       str(hdf['stress_level'].iloc[-1])
-                      if 'stress_level' in hdf.columns else "—")
+            for _c in ['stress_score','sleep','study','screen','anxiety','exercise']:
+                hdf[_c] = pd.to_numeric(hdf[_c], errors='coerce')
 
             x_labels = hdf['day_label'].tolist()
-
-            # ── Stress trend — area chart ──────────────────────
-            st.markdown("#### 📈 Stress Score Over Time")
             level_color_map = {'Low':'#639922','Moderate':'#EF9F27',
                                'High':'#D85A30','Critical':'#E24B4A'}
+
+            # ── Helper: small number stat card ────────────────
+            def num_card(label, value, sub="", color="#AFA9EC", border_color=None):
+                bc = border_color or color
+                return (
+                    f'<div style="background:rgba(255,255,255,0.04);border:1px solid {bc}44;' +
+                    f'border-top:3px solid {bc};border-radius:12px;padding:0.8rem 1rem;">' +
+                    f'<div style="font-size:0.72rem;color:#666;text-transform:uppercase;' +
+                    f'letter-spacing:0.05em;margin-bottom:4px;">{label}</div>' +
+                    f'<div style="font-size:1.6rem;font-weight:800;color:{color};line-height:1;">{value}</div>' +
+                    f'<div style="font-size:0.75rem;color:#666;margin-top:3px;">{sub}</div>' +
+                    f'</div>'
+                )
+
+            # ════════════════════════════════════════════════════
+            # SECTION 1 — Stress Score Over Time
+            # ════════════════════════════════════════════════════
+            st.markdown('<div class="section-header">📈 Stress Score Over Time</div>',
+                        unsafe_allow_html=True)
+
+            # Numbers row
+            avg_stress  = hdf['stress_score'].mean()
+            min_stress  = hdf['stress_score'].min()
+            max_stress  = hdf['stress_score'].max()
+            last_stress = hdf['stress_score'].iloc[-1]
+            trend_val   = hdf['stress_score'].iloc[-1] - hdf['stress_score'].iloc[-2] if len(hdf)>1 else 0
+            trend_str   = f"↓ {abs(trend_val):.0f} vs prev" if trend_val < 0 else (f"↑ {trend_val:.0f} vs prev" if trend_val > 0 else "→ No change")
+            trend_color = "#97C459" if trend_val < 0 else ("#F09595" if trend_val > 0 else "#888")
+            dom_level   = hdf['stress_level'].mode()[0] if 'stress_level' in hdf.columns else "—"
+            dom_color   = level_color_map.get(dom_level, "#888")
+
+            nc1,nc2,nc3,nc4,nc5 = st.columns(5)
+            for col, lbl, val, sub, clr in [
+                (nc1, "Sessions",      str(len(hdf)),          "total logged",       "#AFA9EC"),
+                (nc2, "Avg Score",     f"{avg_stress:.0f}",     "out of 100",         "#AFA9EC"),
+                (nc3, "Latest Score",  f"{last_stress:.0f}",    trend_str,             trend_color),
+                (nc4, "Best Score",    f"{min_stress:.0f}",     "lowest stress",      "#97C459"),
+                (nc5, "Worst Score",   f"{max_stress:.0f}",     "highest stress",     "#F09595"),
+            ]:
+                col.markdown(num_card(lbl, val, sub, clr), unsafe_allow_html=True)
+
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+            # Chart
             marker_colors = [level_color_map.get(l, '#AFA9EC')
                              for l in hdf.get('stress_level', ['Low'] * len(hdf))]
-
             fig_stress = go.Figure()
             fig_stress.add_trace(go.Scatter(
                 x=x_labels, y=hdf['stress_score'],
-                mode='lines+markers',
+                mode='lines+markers+text',
+                text=hdf['stress_score'].apply(lambda v: f"{v:.0f}"),
+                textposition='top center',
+                textfont=dict(size=9, color='#ccc'),
                 line=dict(color='#AFA9EC', width=2.5, shape='spline'),
-                marker=dict(color=marker_colors, size=9, line=dict(width=1.5, color='white')),
-                fill='tozeroy',
-                fillcolor='rgba(83,74,183,0.12)',
-                name='Stress Score',
+                marker=dict(color=marker_colors, size=9, line=dict(width=1.5, color='rgba(0,0,0,0.3)')),
+                fill='tozeroy', fillcolor='rgba(83,74,183,0.10)',
                 hovertemplate='<b>%{x}</b><br>Score: %{y}<extra></extra>'
             ))
-            for threshold, color, label in [(30,'#639922','Low'),
-                                            (55,'#BA7517','High'),
-                                            (75,'#A32D2D','Critical')]:
-                fig_stress.add_hline(y=threshold, line_dash='dot',
-                                     line_color=color, opacity=0.5,
-                                     annotation_text=label,
-                                     annotation_position='left',
-                                     annotation_font_color=color)
+            for threshold, color, label in [(30,'#639922','Low'),(55,'#BA7517','High'),(75,'#A32D2D','Critical')]:
+                fig_stress.add_hline(y=threshold, line_dash='dot', line_color=color, opacity=0.45,
+                                     annotation_text=label, annotation_position='right',
+                                     annotation_font_color=color, annotation_font_size=10)
             fig_stress.update_layout(
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                yaxis=dict(range=[0,105], gridcolor='rgba(255,255,255,0.07)',
-                           tickfont=dict(color='#999')),
-                xaxis=dict(gridcolor='rgba(255,255,255,0.05)',
-                           tickfont=dict(color='#999')),
-                margin=dict(t=20, b=20, l=10, r=10), height=280,
-                showlegend=False
+                yaxis=dict(range=[0,115], gridcolor='rgba(255,255,255,0.06)', tickfont=dict(color='#777',size=10)),
+                xaxis=dict(gridcolor='rgba(255,255,255,0.04)', tickfont=dict(color='#777',size=10)),
+                margin=dict(t=20, b=10, l=10, r=60), height=270, showlegend=False
             )
             st.plotly_chart(fig_stress, use_container_width=True)
+            st.divider()
 
-            # ── Sleep & Study dual axis ────────────────────────
-            st.markdown("#### 📊 Sleep & Study Hours")
+            # ════════════════════════════════════════════════════
+            # SECTION 2 — Sleep & Study Hours
+            # ════════════════════════════════════════════════════
+            st.markdown('<div class="section-header">🛏 Sleep & Study Hours</div>',
+                        unsafe_allow_html=True)
+
+            avg_sleep   = hdf['sleep'].mean()
+            min_sleep   = hdf['sleep'].min()
+            avg_study   = hdf['study'].mean()
+            max_study   = hdf['study'].max()
+            nights_ok   = int((hdf['sleep'] >= 7).sum())
+            days_ok_st  = int((hdf['study'] <= 8).sum())
+
+            sc1,sc2,sc3,sc4,sc5,sc6 = st.columns(6)
+            for col, lbl, val, sub, clr in [
+                (sc1, "Avg Sleep",       f"{avg_sleep:.1f}h",   "per night",          "#AFA9EC"),
+                (sc2, "Lowest Sleep",    f"{min_sleep:.1f}h",   "worst night",        "#F09595"),
+                (sc3, "Nights ≥7h",      f"{nights_ok}",        f"of {len(hdf)} logged","#97C459"),
+                (sc4, "Avg Study",       f"{avg_study:.1f}h",   "per day",            "#AFA9EC"),
+                (sc5, "Max Study",       f"{max_study:.1f}h",   "heaviest day",       "#FAC775"),
+                (sc6, "Days ≤8h Study",  f"{days_ok_st}",       f"of {len(hdf)} logged","#97C459"),
+            ]:
+                col.markdown(num_card(lbl, val, sub, clr), unsafe_allow_html=True)
+
+            st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
             fig_dual = make_subplots(specs=[[{"secondary_y": True}]])
             fig_dual.add_trace(go.Bar(
-                x=x_labels, y=hdf['sleep'],
-                name='Sleep (hrs)', marker_color='rgba(83,74,183,0.65)',
-                marker_line_width=0,
+                x=x_labels, y=hdf['sleep'], name='Sleep (hrs)',
+                marker_color='rgba(83,74,183,0.6)', marker_line_width=0,
+                text=hdf['sleep'].apply(lambda v: f"{v:.1f}"), textposition='outside',
+                textfont=dict(size=9, color='#AFA9EC'),
                 hovertemplate='Sleep: %{y}h<extra></extra>'
             ), secondary_y=False)
             fig_dual.add_trace(go.Scatter(
-                x=x_labels, y=hdf['study'],
-                mode='lines+markers', name='Study (hrs)',
+                x=x_labels, y=hdf['study'], mode='lines+markers+text', name='Study (hrs)',
+                text=hdf['study'].apply(lambda v: f"{v:.1f}"), textposition='top center',
+                textfont=dict(size=9, color='#D4537E'),
                 line=dict(color='#D4537E', width=2.5, shape='spline'),
                 marker=dict(size=7, color='#D4537E'),
                 hovertemplate='Study: %{y}h<extra></extra>'
             ), secondary_y=True)
-            fig_dual.add_hline(y=7, line_dash='dot', line_color='#AFA9EC',
-                               opacity=0.4, annotation_text='Sleep target',
-                               annotation_font_color='#AFA9EC')
+            fig_dual.add_hline(y=7, line_dash='dot', line_color='#AFA9EC', opacity=0.35,
+                               annotation_text='7h target', annotation_font_color='#AFA9EC',
+                               annotation_font_size=9)
             fig_dual.update_layout(
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                legend=dict(font=dict(color='#ccc'), bgcolor='rgba(0,0,0,0)'),
-                margin=dict(t=20, b=20, l=10, r=10), height=280,
-                yaxis=dict(title='Sleep hrs', gridcolor='rgba(255,255,255,0.07)',
-                           tickfont=dict(color='#999')),
-                yaxis2=dict(title='Study hrs', tickfont=dict(color='#D4537E'))
+                legend=dict(font=dict(color='#aaa',size=10), bgcolor='rgba(0,0,0,0)',
+                            orientation='h', y=1.1),
+                margin=dict(t=30, b=10, l=10, r=50), height=270,
+                yaxis=dict(gridcolor='rgba(255,255,255,0.06)', tickfont=dict(color='#777',size=10)),
+                yaxis2=dict(tickfont=dict(color='#D4537E',size=10))
             )
             st.plotly_chart(fig_dual, use_container_width=True)
+            st.divider()
 
-            # ── Multi-metric trend ─────────────────────────────
-            if all(c in hdf.columns for c in ['screen', 'anxiety', 'exercise']):
-                st.markdown("#### 📉 Lifestyle Trends")
+            # ════════════════════════════════════════════════════
+            # SECTION 3 — Lifestyle Trends
+            # ════════════════════════════════════════════════════
+            if all(c in hdf.columns for c in ['screen','anxiety','exercise']):
+                st.markdown('<div class="section-header">📉 Lifestyle Trends</div>',
+                            unsafe_allow_html=True)
+
+                avg_screen  = hdf['screen'].mean()
+                avg_anxiety = hdf['anxiety'].mean()
+                ex_days     = int((hdf['exercise'].clip(0,1) > 0).sum())
+                hi_anxiety  = int((hdf['anxiety'] >= 7).sum())
+                hi_screen   = int((hdf['screen'] > 4).sum())
+
+                lc1,lc2,lc3,lc4,lc5 = st.columns(5)
+                for col, lbl, val, sub, clr in [
+                    (lc1, "Avg Screen Time",  f"{avg_screen:.1f}h",  "per day",           "#FAC775" if avg_screen>4 else "#97C459"),
+                    (lc2, "Days Screen >4h",  f"{hi_screen}",        f"of {len(hdf)} days","#FAC775"),
+                    (lc3, "Avg Anxiety",      f"{avg_anxiety:.1f}",  "out of 10",          "#F09595" if avg_anxiety>=6 else "#97C459"),
+                    (lc4, "Days Anxiety ≥7",  f"{hi_anxiety}",       "high-anxiety days",  "#F09595"),
+                    (lc5, "Exercise Days",    f"{ex_days}",          f"of {len(hdf)} logged","#97C459" if ex_days/max(1,len(hdf))>=0.5 else "#F09595"),
+                ]:
+                    col.markdown(num_card(lbl, val, sub, clr), unsafe_allow_html=True)
+
+                st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
                 fig_multi = go.Figure()
-                metric_cfg = [
-                    ('screen',   '#FAC775', 'Screen (hrs)'),
-                    ('anxiety',  '#F09595', 'Anxiety (/10)'),
-                    ('exercise', '#97C459', 'Exercise (days/wk)'),
-                ]
-                for col, color, label in metric_cfg:
-                    if col in hdf.columns:
+                for col_, color_, label_ in [
+                    ('screen',  '#FAC775','Screen (hrs)'),
+                    ('anxiety', '#F09595','Anxiety (/10)'),
+                    ('exercise','#97C459','Exercise (0/1)'),
+                ]:
+                    if col_ in hdf.columns:
                         fig_multi.add_trace(go.Scatter(
-                            x=x_labels, y=hdf[col],
-                            mode='lines+markers', name=label,
-                            line=dict(color=color, width=2, shape='spline'),
-                            marker=dict(size=6),
-                            hovertemplate=f'{label}: %{{y}}<extra></extra>'
+                            x=x_labels, y=hdf[col_], mode='lines+markers+text',
+                            text=hdf[col_].apply(lambda v: f"{v:.0f}"),
+                            textposition='top center', textfont=dict(size=8, color=color_),
+                            name=label_,
+                            line=dict(color=color_, width=2, shape='spline'),
+                            marker=dict(size=6, color=color_),
+                            hovertemplate=f'{label_}: %{{y}}<extra></extra>'
                         ))
                 fig_multi.update_layout(
                     paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                    legend=dict(font=dict(color='#ccc'), bgcolor='rgba(0,0,0,0)',
-                                orientation='h', yanchor='bottom', y=1.02),
-                    margin=dict(t=40, b=20, l=10, r=10), height=280,
-                    yaxis=dict(gridcolor='rgba(255,255,255,0.07)',
-                               tickfont=dict(color='#999')),
-                    xaxis=dict(gridcolor='rgba(255,255,255,0.05)',
-                               tickfont=dict(color='#999'))
+                    legend=dict(font=dict(color='#aaa',size=10), bgcolor='rgba(0,0,0,0)',
+                                orientation='h', y=1.1),
+                    margin=dict(t=30, b=10, l=10, r=10), height=270,
+                    yaxis=dict(gridcolor='rgba(255,255,255,0.06)', tickfont=dict(color='#777',size=10)),
+                    xaxis=dict(gridcolor='rgba(255,255,255,0.04)', tickfont=dict(color='#777',size=10))
                 )
                 st.plotly_chart(fig_multi, use_container_width=True)
+                st.divider()
 
-            # ── Stress distribution donut ──────────────────────
+            # ════════════════════════════════════════════════════
+            # SECTION 4 — Distribution & Spread
+            # ════════════════════════════════════════════════════
             if 'stress_level' in hdf.columns:
-                c_pie, c_box = st.columns([1, 1])
-                with c_pie:
-                    st.markdown("#### 🍩 Stress Distribution")
-                    level_counts = hdf['stress_level'].value_counts()
+                st.markdown('<div class="section-header">🍩 Stress Level Distribution & Spread</div>',
+                            unsafe_allow_html=True)
+
+                level_counts = hdf['stress_level'].value_counts()
+
+                # Number cards — one per stress level
+                dcols = st.columns(4)
+                for i, lvl in enumerate(['Low','Moderate','High','Critical']):
+                    cnt  = int(level_counts.get(lvl, 0))
+                    pct  = cnt / len(hdf) * 100
+                    clr  = COLORS.get(lvl, '#888')
+                    lvl_data = hdf[hdf['stress_level']==lvl]['stress_score'].dropna()
+                    avg_lvl  = f"{lvl_data.mean():.0f}" if not lvl_data.empty else "—"
+                    dcols[i].markdown(
+                        num_card(f"{lvl} Sessions", f"{cnt}", f"{pct:.0f}% · avg score {avg_lvl}", clr, clr),
+                        unsafe_allow_html=True)
+
+                st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+                d_pie, d_box = st.columns(2)
+                with d_pie:
                     fig_donut = go.Figure(go.Pie(
-                        labels=level_counts.index,
-                        values=level_counts.values,
-                        hole=0.52,
+                        labels=level_counts.index, values=level_counts.values, hole=0.52,
                         marker_colors=[COLORS.get(l,'#888') for l in level_counts.index],
-                        textfont=dict(size=12),
+                        textinfo='percent+value', textfont=dict(size=11),
                         hovertemplate='%{label}: %{value} sessions (%{percent})<extra></extra>'
                     ))
                     fig_donut.update_layout(
                         paper_bgcolor='rgba(0,0,0,0)',
-                        legend=dict(font=dict(color='#ccc'), bgcolor='rgba(0,0,0,0)'),
+                        legend=dict(font=dict(color='#ccc',size=10), bgcolor='rgba(0,0,0,0)'),
                         margin=dict(t=10, b=10, l=10, r=10), height=280,
                         annotations=[dict(text=f"{len(hdf)}<br>sessions",
-                                          font=dict(size=13, color='#AFA9EC'),
-                                          showarrow=False)]
+                                          font=dict(size=13, color='#AFA9EC'), showarrow=False)]
                     )
                     st.plotly_chart(fig_donut, use_container_width=True)
 
-                with c_box:
-                    st.markdown("#### 📦 Score Distribution by Level")
+                with d_box:
                     fig_box = go.Figure()
+                    BOX_FILL = {'Low':'rgba(99,153,34,0.25)','Moderate':'rgba(186,117,23,0.25)',
+                                'High':'rgba(153,60,29,0.25)','Critical':'rgba(163,45,45,0.25)'}
                     for lvl in ['Low','Moderate','High','Critical']:
-                        lvl_data = hdf[hdf['stress_level'] == lvl]['stress_score'].dropna()
+                        lvl_data = hdf[hdf['stress_level']==lvl]['stress_score'].dropna()
                         if not lvl_data.empty:
                             fig_box.add_trace(go.Box(
                                 y=lvl_data, name=lvl,
-                                marker_color=COLORS.get(lvl, '#888'),
-                                line_color=COLORS.get(lvl, '#888'),
-                                fillcolor={'Low':'rgba(99,153,34,0.25)','Moderate':'rgba(186,117,23,0.25)','High':'rgba(153,60,29,0.25)','Critical':'rgba(163,45,45,0.25)'}.get(lvl,'rgba(128,128,128,0.25)'),
-                                boxmean=True
+                                marker_color=COLORS.get(lvl,'#888'),
+                                line_color=COLORS.get(lvl,'#888'),
+                                fillcolor=BOX_FILL.get(lvl,'rgba(128,128,128,0.25)'),
+                                boxmean=True,
+                                boxpoints='all', jitter=0.4, pointpos=-1.6,
+                                hovertemplate='Score: %{y}<extra></extra>'
                             ))
                     fig_box.update_layout(
                         paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                        yaxis=dict(title='Stress Score', range=[0,105],
-                                   gridcolor='rgba(255,255,255,0.07)',
-                                   tickfont=dict(color='#999')),
-                        xaxis=dict(tickfont=dict(color='#999')),
+                        yaxis=dict(range=[0,105], gridcolor='rgba(255,255,255,0.06)',
+                                   tickfont=dict(color='#777',size=10)),
+                        xaxis=dict(tickfont=dict(color='#aaa',size=10)),
                         showlegend=False, margin=dict(t=10, b=10, l=10, r=10), height=280
                     )
                     st.plotly_chart(fig_box, use_container_width=True)
 
+            # ── Raw data expander ──────────────────────────────
             with st.expander("📋 View raw data"):
                 st.dataframe(hdf.drop(columns=['id','user_id'], errors='ignore'),
                              use_container_width=True)
