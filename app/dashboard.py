@@ -771,7 +771,11 @@ def generate_stress_report(user, history_df, stress_score, level_name,
                             level_color, sleep, study, screen, anxiety,
                             exercise, pred_proba, LABELS, COLORS):
     """Generate a one-page PDF stress report using reportlab."""
-    import io
+    import io, subprocess, sys
+    try:
+        import reportlab
+    except ImportError:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "reportlab", "--quiet"])
     from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors as rl_colors
     from reportlab.lib.units import mm
@@ -1591,24 +1595,29 @@ def show_main_app(user: dict):
                     'inputs, ML confidence, and top recommendations.</div>',
                     unsafe_allow_html=True)
             with rpt_col2:
-                try:
-                    pdf_bytes = generate_stress_report(
-                        user, history_df, stress_score, level_name,
-                        level_color, sleep, study, screen, anxiety,
-                        exercise, pred_proba, LABELS, COLORS
-                    )
-                    import datetime as _dt2
-                    fn = f"stress_report_{user["username"]}_{_dt2.date.today()}.pdf"
+                import datetime as _dt2
+                if st.button("📄 Generate PDF Report", use_container_width=True, type="primary"):
+                    with st.spinner("Generating report…"):
+                        try:
+                            pdf_bytes = generate_stress_report(
+                                user, history_df, stress_score, level_name,
+                                level_color, sleep, study, screen, anxiety,
+                                exercise, pred_proba, LABELS, COLORS
+                            )
+                            st.session_state["pdf_bytes"] = pdf_bytes
+                            st.session_state["pdf_fn"] = (
+                                f"stress_report_{user['username']}_{_dt2.date.today()}.pdf"
+                            )
+                        except Exception as e:
+                            st.error(f"PDF generation failed: {e}")
+                if "pdf_bytes" in st.session_state and st.session_state["pdf_bytes"]:
                     st.download_button(
                         label="⬇️ Download PDF Report",
-                        data=pdf_bytes,
-                        file_name=fn,
+                        data=st.session_state["pdf_bytes"],
+                        file_name=st.session_state.get("pdf_fn", "stress_report.pdf"),
                         mime="application/pdf",
                         use_container_width=True,
-                        type="primary"
                     )
-                except Exception as e:
-                    st.error(f"PDF generation failed: {e}")
 
         # ══════════════════════════════════════════════════════════
         # TAB 2 — Factor Analysis
