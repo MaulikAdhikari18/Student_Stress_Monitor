@@ -395,9 +395,9 @@ def generate_weekly_schedule(tasks_df, stress_score, daily_study_limit):
     days  = [(today + datetime.timedelta(days=i)) for i in range(7)]
 
     # Stress-adjusted daily cap
-    if stress_score >= 75:
+    if stress_score >= 90:
         cap = max(1.5, daily_study_limit * 0.5)
-    elif stress_score >= 55:
+    elif stress_score >= 75:
         cap = max(2.0, daily_study_limit * 0.7)
     else:
         cap = daily_study_limit
@@ -446,9 +446,9 @@ def generate_weekly_schedule(tasks_df, stress_score, daily_study_limit):
 
 def get_break_schedule(stress_score):
     """Return recommended study block & break duration based on stress."""
-    if stress_score >= 75:
+    if stress_score >= 90:
         return 20, 10, "🔴 Critical stress — short blocks, frequent breaks"
-    elif stress_score >= 55:
+    elif stress_score >= 75:
         return 25, 8,  "🟠 High stress — Pomodoro 25/8 recommended"
     elif stress_score >= 30:
         return 35, 7,  "🟡 Moderate stress — 35 min focus, 7 min break"
@@ -1126,15 +1126,15 @@ def show_main_app(user: dict):
 
             def stress_bg(score):
                 if score is None: return "rgba(255,255,255,0.04)"
-                if score>=75:     return "rgba(163,45,45,0.55)"
-                if score>=55:     return "rgba(153,60,29,0.50)"
+                if score>=90:     return "rgba(163,45,45,0.55)"
+                if score>=75:     return "rgba(153,60,29,0.50)"
                 if score>=30:     return "rgba(186,117,23,0.45)"
                 return                   "rgba(99,153,34,0.45)"
 
             def stress_border(score):
                 if score is None: return "rgba(255,255,255,0.1)"
-                if score>=75:     return "#E24B4A"
-                if score>=55:     return "#D85A30"
+                if score>=90:     return "#E24B4A"
+                if score>=75:     return "#D85A30"
                 if score>=30:     return "#EF9F27"
                 return                   "#639922"
 
@@ -1359,10 +1359,10 @@ def show_main_app(user: dict):
                 level_name = LABELS[pred_class]
             else:
                 pred_proba = None; pred_class = 0
-                if   stress_score > 74: level_name = "Critical"
-                elif stress_score > 54: level_name = "High"
-                elif stress_score > 29: level_name = "Moderate"
-                else:                   level_name = "Low"
+                if   stress_score >= 90: level_name = "Critical"
+                elif stress_score >= 75: level_name = "High"
+                elif stress_score >= 30: level_name = "Moderate"
+                else:                    level_name = "Low"
 
             level_color = COLORS[level_name]
             level_emoji = EMOJIS[level_name]
@@ -1441,12 +1441,12 @@ def show_main_app(user: dict):
             pred_class = int(model.predict(inp_sc)[0])
             pred_proba = model.predict_proba(inp_sc)[0]
             # Rule-based class from our calibrated thresholds
-            rule_class = (3 if stress_score>=75 else 2 if stress_score>=55
+            rule_class = (3 if stress_score>=90 else 2 if stress_score>=75
                           else 1 if stress_score>=30 else 0)
             # The ML model is systematically biased 1 class higher due to
             # training data distribution. Always use rule_class when it gives
             # a lower (less severe) stress level — rule-based is calibrated to
-            # our exact thresholds (0-29 Low, 30-54 Moderate, 55-74 High, 75+ Critical)
+            # our exact thresholds (0-29 Low, 30-74 Moderate, 75-89 High, 90+ Critical)
             if pred_class > rule_class:
                 # Shift probability mass from ML class to rule class
                 if pred_proba is not None:
