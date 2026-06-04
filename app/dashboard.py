@@ -1356,6 +1356,16 @@ def show_main_app(user: dict):
                 inp_sc     = scaler.transform(inp)
                 pred_class = int(model.predict(inp_sc)[0])
                 pred_proba = model.predict_proba(inp_sc)[0]
+                # Apply rule-based correction — ML is biased 1 class higher
+                rule_class = (3 if stress_score >= 90 else 2 if stress_score >= 75
+                              else 1 if stress_score >= 30 else 0)
+                if pred_class > rule_class:
+                    if pred_proba is not None:
+                        corrected = pred_proba.copy().astype(float)
+                        corrected[rule_class] += corrected[pred_class]
+                        corrected[pred_class] = 0.0
+                        pred_proba = corrected
+                    pred_class = rule_class
                 level_name = LABELS[pred_class]
             else:
                 pred_proba = None; pred_class = 0
