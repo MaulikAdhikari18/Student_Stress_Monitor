@@ -117,7 +117,7 @@ def aurora_hero_card(title: str, value_html: str, ring_html: str = "",
     <div class="aurora-blob {blob_a}" style="top:-40px;right:-30px;width:160px;height:160px;"></div>
     <div class="aurora-blob {blob_b}" style="bottom:-30px;left:-20px;width:140px;height:140px;"></div>
     <div class="aurora-content">
-        <p style="font-size:13px;color:var(--text-secondary);margin:0 0 4px;">{title}</p>
+        <p style="font-size:13px;color:var(--text-secondary) !important;margin:0 0 4px;">{title}</p>
         <div style="display:flex;justify-content:space-between;align-items:center;">
             <div>{value_html}</div>
             {ring_block}

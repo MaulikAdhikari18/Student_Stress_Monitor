@@ -2,10 +2,19 @@
 All CSS for the app, theme-aware.
 
 Every color in every rule below is a var(--token) reference resolved from
-src/ui/theme.py's DARK or LIGHT dict — nothing here is a hardcoded hex or
+src/ui/theme.py's DARK or LIGHT dict -- nothing here is a hardcoded hex or
 rgba() anymore. inject_global_css() builds the :root block from the
 active theme and must be called on every page load (it already is, from
 app.py) so a mode switch repaints instantly on the next rerun.
+
+IMPORTANT: Streamlit ships its own built-in theme that auto-follows the
+browser/OS dark-mode preference, completely independent of this file.
+Without the _WIDGET_OVERRIDES block below, our custom CSS only recolors
+the divs *we* build (cards, tiles) -- every native widget (buttons, tabs,
+progress bars, metrics, captions, inputs) stays on Streamlit's own theme.
+That mismatch is what caused white-on-white invisible text when a user's
+OS was in dark mode but our toggle was set to light. _WIDGET_OVERRIDES
+forces every native widget to also read from our CSS variables.
 """
 
 import streamlit as st
@@ -21,6 +30,85 @@ _TABLER_ICONS_LINK = (
     '<link rel="stylesheet" '
     'href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">'
 )
+
+_WIDGET_OVERRIDES = """
+/* ── Force Streamlit's native (OS-theme-driven) widgets onto our palette ── */
+.stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
+    background: var(--bg-page) !important;
+}
+[data-testid="stHeader"] { background: transparent !important; }
+
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li,
+[data-testid="stMarkdownContainer"] h1,
+[data-testid="stMarkdownContainer"] h2,
+[data-testid="stMarkdownContainer"] h3,
+[data-testid="stMarkdownContainer"] h4,
+[data-testid="stMarkdownContainer"] h5,
+[data-testid="stMarkdownContainer"] h6 {
+    color: var(--text-primary) !important;
+}
+[data-testid="stCaptionContainer"] p { color: var(--text-muted) !important; }
+[data-testid="stWidgetLabel"] p { color: var(--text-primary) !important; }
+
+[data-testid="stMetricValue"] { color: var(--text-primary) !important; }
+[data-testid="stMetricLabel"] { color: var(--text-secondary) !important; }
+[data-testid="stMetricDelta"] { color: var(--text-secondary) !important; }
+
+/* Buttons -- this is what fixes the black nav buttons */
+.stButton > button {
+    background: var(--button-bg) !important;
+    color: var(--button-text) !important;
+    border: 1px solid var(--border) !important;
+}
+.stButton > button:hover {
+    background: var(--button-bg-hover) !important;
+    border-color: var(--border-strong) !important;
+    color: var(--accent-purple) !important;
+}
+.stButton > button[kind="primary"] {
+    background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink)) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+}
+.stButton > button[kind="primary"] p { color: #FFFFFF !important; }
+
+/* Tabs */
+.stTabs [data-baseweb="tab"] { color: var(--text-secondary) !important; }
+.stTabs [data-baseweb="tab"] p { color: var(--text-secondary) !important; }
+.stTabs [aria-selected="true"] { color: var(--accent-purple) !important; }
+.stTabs [aria-selected="true"] p { color: var(--accent-purple) !important; }
+.stTabs [data-baseweb="tab-highlight"] { background-color: var(--accent-purple) !important; }
+.stTabs [data-baseweb="tab-border"] { background-color: var(--border) !important; }
+
+/* Progress bar -- fixes the invisible confidence-bar labels */
+[data-testid="stProgress"] > div > div { background: var(--border) !important; }
+[data-testid="stProgress"] > div > div > div { background: var(--accent-purple) !important; }
+
+/* Text / number / date inputs, selects, textareas */
+.stTextInput input, .stNumberInput input, .stDateInput input, .stTextArea textarea {
+    background: var(--bg-surface) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border) !important;
+}
+.stSelectbox [data-baseweb="select"] > div {
+    background: var(--bg-surface) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border) !important;
+}
+
+/* Expander */
+[data-testid="stExpander"] {
+    border-color: var(--border) !important;
+    background: var(--bg-surface) !important;
+}
+
+/* Our own theme toggle -- give it a clearly "global setting" look */
+[data-testid="stWidgetLabel"]:has(+ div [data-baseweb="switch"]) p,
+.stToggle p {
+    font-weight: 600 !important;
+}
+"""
 
 
 def inject_global_css():
@@ -160,6 +248,8 @@ def inject_global_css():
 }}
 .insight-title {{ font-size:1rem; font-weight:700; color:var(--accent-purple); margin-bottom:0.4rem; }}
 .insight-body  {{ font-size:0.88rem; opacity:0.9; line-height:1.6; color:var(--text-primary); }}
+
+{_WIDGET_OVERRIDES}
 </style>
 """
     st.markdown(css, unsafe_allow_html=True)
@@ -206,6 +296,8 @@ def inject_landing_css():
     border-radius: 20px; padding: 4px 14px; font-size: 0.8rem; color: var(--accent-purple); font-weight: 600;
 }}
 .cta-note {{ font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem; }}
+
+{_WIDGET_OVERRIDES}
 </style>
 """
     st.markdown(css, unsafe_allow_html=True)
