@@ -6,17 +6,24 @@ Run from project root: python src/train_model.py
 
 import os
 import pickle
-import numpy as np
-import pandas as pd
+import sys
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pandas as pd
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from src.config import (
+    FEATURES, TARGET, LABELS, TRAINING_DATA_PATH, MODELS_DIR,
+    MODEL_PATH, SCALER_PATH, META_PATH, FEATURE_DISPLAY_NAMES,
+)
 
 try:
     from xgboost import XGBClassifier
@@ -30,24 +37,9 @@ try:
 except ImportError:
     HAS_SMOTE = False
 
-BASE      = os.path.join(os.path.dirname(__file__), '..')
-DATA_PATH = os.path.join(BASE, 'data', 'student_stress_data.csv')
-MODELS_DIR= os.path.join(BASE, 'models')
-os.makedirs(MODELS_DIR, exist_ok=True)
-
-FEATURES = [
-    'study_hours', 'assignments_pending', 'exam_pressure',
-    'academic_performance', 'sleep_hours', 'exercise_days_per_week',
-    'social_interactions_per_week', 'screen_time_hours',
-    'anxiety_level', 'financial_stress', 'family_support',
-    'peer_pressure', 'extracurricular_activities', 'relationship_issues',
-]
-TARGET = 'stress_level'
-LABELS = ['Low', 'Moderate', 'High', 'Critical']
-
 
 def load_data():
-    df = pd.read_csv(DATA_PATH)
+    df = pd.read_csv(TRAINING_DATA_PATH)
     return df[FEATURES], df[TARGET]
 
 
@@ -75,7 +67,7 @@ def train():
 
     scaler = StandardScaler()
     X_train_sc = scaler.fit_transform(X_train)
-    X_test_sc  = scaler.transform(X_test)
+    X_test_sc = scaler.transform(X_test)
 
     models = {}
 
@@ -104,20 +96,20 @@ def train():
         models['XGBoost'] = (xgb, accuracy_score(y_test, xgb.predict(X_test_sc)))
         print(f"  Accuracy: {models['XGBoost'][1]:.4f}")
 
-    best_name  = max(models, key=lambda k: models[k][1])
+    best_name = max(models, key=lambda k: models[k][1])
     best_model = models[best_name][0]
-    best_acc   = models[best_name][1]
+    best_acc = models[best_name][1]
     print(f"\n✓ Best model: {best_name}  (accuracy={best_acc:.4f})")
 
     y_pred = best_model.predict(X_test_sc)
     print("\nClassification Report:")
     print(classification_report(y_test, y_pred, target_names=LABELS))
 
-    with open(os.path.join(MODELS_DIR, 'model.pkl'), 'wb') as f:
+    with open(MODEL_PATH, 'wb') as f:
         pickle.dump(best_model, f)
-    with open(os.path.join(MODELS_DIR, 'scaler.pkl'), 'wb') as f:
+    with open(SCALER_PATH, 'wb') as f:
         pickle.dump(scaler, f)
-    with open(os.path.join(MODELS_DIR, 'meta.pkl'), 'wb') as f:
+    with open(META_PATH, 'wb') as f:
         pickle.dump({'features': FEATURES, 'labels': LABELS,
                      'best_model': best_name, 'accuracy': round(best_acc, 4)}, f)
 
@@ -143,24 +135,8 @@ def _plot_confusion(y_test, y_pred):
 def _plot_importance(model, name):
     if not hasattr(model, 'feature_importances_'):
         return
-    nice_names = {
-        'study_hours': 'Study hours/day',
-        'assignments_pending': 'Assignments pending',
-        'exam_pressure': 'Exam pressure',
-        'academic_performance': 'Academic performance',
-        'sleep_hours': 'Sleep hours/night',
-        'exercise_days_per_week': 'Exercise days/week',
-        'social_interactions_per_week': 'Social interactions',
-        'screen_time_hours': 'Screen time hours',
-        'anxiety_level': 'Anxiety level',
-        'financial_stress': 'Financial stress',
-        'family_support': 'Family support',
-        'peer_pressure': 'Peer pressure',
-        'extracurricular_activities': 'Extracurriculars',
-        'relationship_issues': 'Relationship issues',
-    }
     imp = pd.Series(model.feature_importances_, index=FEATURES).sort_values()
-    imp.index = [nice_names.get(i, i) for i in imp.index]
+    imp.index = [FEATURE_DISPLAY_NAMES.get(i, i) for i in imp.index]
     colors = ['#534AB7' if v > imp.median() else '#AFA9EC' for v in imp.values]
     fig, ax = plt.subplots(figsize=(8, 6))
     imp.plot.barh(ax=ax, color=colors)
