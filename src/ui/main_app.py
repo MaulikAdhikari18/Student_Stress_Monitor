@@ -18,6 +18,7 @@ from src.ml.model import load_model, predict_stress
 from src.ml.scoring import daily_exercise_to_weekly
 from src.config import classify_score
 from src.ui.components import render_html
+from src.ui.theme import toggle_control
 
 from src.ui.pages import (
     entry_page,
@@ -39,7 +40,7 @@ NAV_PAGES = [
 
 
 def _render_navbar(username: str):
-    n1, n2, n3, n4, n5, n6, nr = st.columns([1.2, 1.1, 1, 1, 1, 1, 1.1])
+    n1, n2, n3, n4, n5, n6, nt, nr = st.columns([1.2, 1.1, 1, 1, 1, 1, 0.5, 1.1])
     for col, (pg_key, pg_label) in zip([n1, n2, n3, n4, n5, n6], NAV_PAGES):
         with col:
             is_active = st.session_state["page"] == pg_key
@@ -48,6 +49,8 @@ def _render_navbar(username: str):
                          key=f"nav_{pg_key}"):
                 st.session_state["page"] = pg_key
                 st.rerun()
+    with nt:
+        toggle_control()
     with nr:
         render_html(
             f'<div style="text-align:right;padding-top:2px;">'

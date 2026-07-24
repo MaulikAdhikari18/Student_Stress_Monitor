@@ -15,7 +15,7 @@ import plotly.graph_objects as go
 from src.config import LABELS, COLORS
 from src.ml.scoring import factor_breakdown
 from src.services.report import generate_stress_report
-from src.ui.components import render_html
+from src.ui.components import render_html, aurora_hero_card, progress_ring_svg, metric_tile
 
 
 def render(user: dict, history_df: pd.DataFrame, model_ready: bool, meta: dict | None,
@@ -45,13 +45,14 @@ def render(user: dict, history_df: pd.DataFrame, model_ready: bool, meta: dict |
     with tab1:
         col_left, col_right = st.columns([1.4, 1])
         with col_left:
-            render_html(f"""
-            <div class="stress-box box-{level_name.lower()}">
-                <h2 style="margin:0;color:{level_color};">{level_emoji} {level_name} Stress</h2>
-                <p style="margin:0.4rem 0 0;font-size:1.05rem;">
-                    Stress score: <strong>{stress_score} / 100</strong>
-                </p>
-            </div>""")
+            value_html = (
+                f'<h1 style="margin:0;font-size:30px;color:var(--text-primary);font-weight:500;">'
+                f'{level_emoji} {level_name} '
+                f'<span style="font-size:14px;color:var(--text-secondary);font-weight:400;">'
+                f'{stress_score}/100</span></h1>'
+            )
+            ring_html = progress_ring_svg(stress_score, level_color, size=56)
+            render_html(aurora_hero_card("Current stress level", value_html, ring_html))
 
             if model_ready and pred_proba is not None:
                 st.markdown("#### Confidence across levels")
@@ -104,15 +105,15 @@ def render(user: dict, history_df: pd.DataFrame, model_ready: bool, meta: dict |
 
         st.divider()
         st.markdown("#### Quick health snapshot")
-        m1, m2, m3, m4 = st.columns(4)
-        sleep_status = "Optimal ✅" if sleep >= 8 else f"-{8 - sleep:.1f}h ⚠️"
+        sleep_status = "Optimal" if sleep >= 8 else f"-{8 - sleep:.1f}h"
         study_load = ["Light", "Moderate", "Heavy", "Extreme"][min(3, int(study // 4))]
         recovery = int(((exercise / 7) * 0.4 + (sleep / 10) * 0.4 + (social / 20) * 0.2) * 100)
         burnout = min(100, int(stress_score * 0.6 + max(0, study - 8) * 4 + max(0, 10 - sleep) * 3))
-        m1.metric("Sleep status", sleep_status)
-        m2.metric("Study load", study_load)
-        m3.metric("Recovery score", f"{recovery}%")
-        m4.metric("Burnout risk", f"{burnout}/100")
+        m1, m2, m3, m4 = st.columns(4)
+        m1.markdown(metric_tile("ti ti-moon", sleep_status, "Sleep status"), unsafe_allow_html=True)
+        m2.markdown(metric_tile("ti ti-book", study_load, "Study load"), unsafe_allow_html=True)
+        m3.markdown(metric_tile("ti ti-battery", f"{recovery}%", "Recovery score", "#5DCAA5"), unsafe_allow_html=True)
+        m4.markdown(metric_tile("ti ti-flame", f"{burnout}/100", "Burnout risk", "#D4537E"), unsafe_allow_html=True)
 
         # ── PDF report export ─────────────────────────────────
         st.divider()
