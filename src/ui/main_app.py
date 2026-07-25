@@ -40,15 +40,23 @@ NAV_PAGES = [
 
 
 def _render_navbar(username: str):
-    n1, n2, n3, n4, n5, n6, nt, nr = st.columns([1.2, 1.1, 1, 1, 1, 1, 0.5, 1.1])
+    n1, n2, n3, n4, n5, n6, nt, nr = st.columns([1.1, 1.0, 0.9, 0.9, 0.9, 0.9, 1.4, 1.1])
     for col, (pg_key, pg_label) in zip([n1, n2, n3, n4, n5, n6], NAV_PAGES):
         with col:
             is_active = st.session_state["page"] == pg_key
             if st.button(pg_label, use_container_width=True,
                          type="primary" if is_active else "secondary",
                          key=f"nav_{pg_key}"):
+                # No st.rerun() here: Streamlit already reruns the script
+                # automatically whenever a button is clicked. Calling
+                # st.rerun() again on top of that forces a *second*,
+                # redundant full rerun -- which was causing a visible
+                # double-render flicker (readable as the toggle/theme
+                # "resetting" for a split second on every page switch).
+                # Session state is already updated by the time execution
+                # continues below, so the new page renders correctly in
+                # this same pass.
                 st.session_state["page"] = pg_key
-                st.rerun()
     with nt:
         toggle_control()
     with nr:

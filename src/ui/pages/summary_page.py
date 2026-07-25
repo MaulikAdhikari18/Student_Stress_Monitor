@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from src.config import COLORS as LEVEL_COLOR
-from src.ui.components import summary_card, render_html
+from src.ui.components import summary_card, render_html, dataframe_html
 
 
 def render(history_df: pd.DataFrame):
@@ -86,7 +86,7 @@ def _render_week_section(week_df, week_start, week_end, today):
     wshow = wshow.sort_values("date")
     wshow["date"] = wshow["date"].apply(lambda d: d.strftime("%a %d %b"))
     wshow.columns = [c.replace("_", " ").title() for c in wshow.columns]
-    st.dataframe(wshow.reset_index(drop=True), use_container_width=True, hide_index=True)
+    render_html(dataframe_html(wshow.reset_index(drop=True), max_height="320px"))
 
     st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
     render_html('<div class="section-header">Stress Heatmap — This Week</div>')

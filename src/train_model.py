@@ -1,24 +1,42 @@
 """
-Student Stress Monitor — Model Training
-Trains XGBoost + Random Forest, saves best model and scaler.
+Student Stress Monitor -- Model Training
+Trains RandomForest + GradientBoosting (+ XGBoost if installed), picks the
+best one via stratified cross-validation, tunes its hyperparameters, then
+saves the final model and scaler.
+
 Run from project root: python src/train_model.py
+
+CHANGED from the original version:
+- Model selection is now based on 5-fold stratified cross-validation
+  (mean +/- std accuracy) instead of a single train/test split, which is
+  noisy -- especially with a 4-class problem and a modest dataset. A
+  single split can make a mediocre model look artificially good (or bad)
+  by chance.
+- After picking the best-performing model *type* via CV, that one model
+  gets a RandomizedSearchCV pass to tune its hyperparameters, rather than
+  using fixed guessed values for all three algorithms.
+- meta.pkl now records both the CV accuracy and the final held-out test
+  accuracy, plus the tuned hyperparameters, so it's clear which number
+  means what.
 """
 
 import os
 import pickle
-import sys
-
+import numpy as np
+import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
-import pandas as pd
 
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import (
+    train_test_split, StratifiedKFold, cross_val_score, RandomizedSearchCV,
+)
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 
+import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from src.config import (
     FEATURES, TARGET, LABELS, TRAINING_DATA_PATH, MODELS_DIR,
@@ -33,9 +51,38 @@ except ImportError:
 
 try:
     from imblearn.over_sampling import SMOTE
+    from imblearn.pipeline import Pipeline as ImbPipeline
     HAS_SMOTE = True
 except ImportError:
     HAS_SMOTE = False
+
+CV_FOLDS = 5
+
+# Hyperparameter search space for the final tuning pass. Kept modest
+# (n_iter=20, cv=3) so this stays a "run it and get coffee" script, not
+# an overnight job -- feel free to widen these ranges if you want to
+# spend more compute chasing the last percentage point.
+PARAM_DISTRIBUTIONS = {
+    'RandomForest': {
+        'n_estimators': [200, 300, 400, 500],
+        'max_depth': [8, 12, 16, 20, None],
+        'min_samples_leaf': [1, 2, 4],
+        'max_features': ['sqrt', 'log2', None],
+    },
+    'GradBoost': {
+        'n_estimators': [150, 200, 300, 400],
+        'max_depth': [3, 4, 5, 6],
+        'learning_rate': [0.03, 0.05, 0.1, 0.15, 0.2],
+        'subsample': [0.7, 0.85, 1.0],
+    },
+    'XGBoost': {
+        'n_estimators': [200, 300, 400, 500],
+        'max_depth': [4, 5, 6, 8],
+        'learning_rate': [0.03, 0.05, 0.1, 0.15, 0.2],
+        'subsample': [0.7, 0.85, 1.0],
+        'colsample_bytree': [0.7, 0.85, 1.0],
+    },
+}
 
 
 def load_data():
@@ -43,9 +90,38 @@ def load_data():
     return df[FEATURES], df[TARGET]
 
 
+def _make_base_estimators():
+    estimators = {
+        'RandomForest': RandomForestClassifier(
+            n_estimators=300, max_depth=14,
+            class_weight=None if HAS_SMOTE else 'balanced',
+            random_state=42, n_jobs=-1),
+        'GradBoost': GradientBoostingClassifier(
+            n_estimators=200, max_depth=5, learning_rate=0.1, random_state=42),
+    }
+    if HAS_XGB:
+        estimators['XGBoost'] = XGBClassifier(
+            n_estimators=300, max_depth=6, learning_rate=0.1,
+            eval_metric='mlogloss', random_state=42)
+    return estimators
+
+
+def _cv_pipeline(estimator):
+    """
+    Wraps the estimator in a SMOTE + classifier pipeline for
+    cross-validation, so SMOTE is only ever applied to each fold's
+    training portion (never the validation portion) -- avoiding the
+    classic SMOTE-before-split data leakage bug that inflates CV scores.
+    Falls back to the bare estimator if imbalanced-learn isn't installed.
+    """
+    if HAS_SMOTE:
+        return ImbPipeline([('smote', SMOTE(random_state=42)), ('clf', estimator)])
+    return estimator
+
+
 def train():
     print("=" * 55)
-    print("  Student Stress Monitor — Model Training")
+    print("  Student Stress Monitor -- Model Training")
     print("=" * 55)
     print(f"XGBoost : {'available' if HAS_XGB else 'not installed'}")
     print(f"SMOTE   : {'available' if HAS_SMOTE else 'not installed'}\n")
@@ -58,64 +134,85 @@ def train():
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y)
 
-    if HAS_SMOTE:
-        sm = SMOTE(random_state=42)
-        X_train, y_train = sm.fit_resample(X_train, y_train)
-        print(f"\nSMOTE applied → {len(X_train)} training samples")
-    else:
-        print("\nSMOTE not found — using class_weight='balanced'")
-
     scaler = StandardScaler()
     X_train_sc = scaler.fit_transform(X_train)
     X_test_sc = scaler.transform(X_test)
 
-    models = {}
+    # ── Step 1: pick the best model TYPE via stratified cross-validation ──
+    print(f"\n{'-'*55}\nStep 1: {CV_FOLDS}-fold stratified cross-validation\n{'-'*55}")
+    skf = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=42)
+    estimators = _make_base_estimators()
+    cv_results = {}
+    for name, est in estimators.items():
+        pipeline = _cv_pipeline(est)
+        scores = cross_val_score(pipeline, X_train_sc, y_train, cv=skf, scoring='accuracy', n_jobs=-1)
+        cv_results[name] = (scores.mean(), scores.std())
+        print(f"  {name:12s}: {scores.mean():.4f} +/- {scores.std():.4f}")
 
-    print("\nTraining Random Forest...")
-    rf = RandomForestClassifier(
-        n_estimators=300, max_depth=14,
-        class_weight=None if HAS_SMOTE else 'balanced',
-        random_state=42, n_jobs=-1)
-    rf.fit(X_train_sc, y_train)
-    models['RandomForest'] = (rf, accuracy_score(y_test, rf.predict(X_test_sc)))
-    print(f"  Accuracy: {models['RandomForest'][1]:.4f}")
+    best_name = max(cv_results, key=lambda k: cv_results[k][0])
+    best_cv_mean, best_cv_std = cv_results[best_name]
+    print(f"\n✓ Best model type by CV: {best_name}  ({best_cv_mean:.4f} +/- {best_cv_std:.4f})")
 
-    print("Training Gradient Boosting...")
-    gb = GradientBoostingClassifier(
-        n_estimators=200, max_depth=5, learning_rate=0.1, random_state=42)
-    gb.fit(X_train_sc, y_train)
-    models['GradBoost'] = (gb, accuracy_score(y_test, gb.predict(X_test_sc)))
-    print(f"  Accuracy: {models['GradBoost'][1]:.4f}")
+    # ── Step 2: tune the winning model's hyperparameters ──
+    print(f"\n{'-'*55}\nStep 2: Hyperparameter tuning for {best_name}\n{'-'*55}")
+    base_estimator = estimators[best_name]
+    search_space = PARAM_DISTRIBUTIONS[best_name]
 
-    if HAS_XGB:
-        print("Training XGBoost...")
-        xgb = XGBClassifier(
-            n_estimators=300, max_depth=6, learning_rate=0.1,
-            eval_metric='mlogloss', random_state=42)
-        xgb.fit(X_train_sc, y_train)
-        models['XGBoost'] = (xgb, accuracy_score(y_test, xgb.predict(X_test_sc)))
-        print(f"  Accuracy: {models['XGBoost'][1]:.4f}")
+    if HAS_SMOTE:
+        # Prefix param names for the pipeline step
+        tune_pipeline = ImbPipeline([('smote', SMOTE(random_state=42)), ('clf', base_estimator)])
+        prefixed_space = {f'clf__{k}': v for k, v in search_space.items()}
+        search = RandomizedSearchCV(
+            tune_pipeline, prefixed_space, n_iter=20, cv=3,
+            scoring='accuracy', random_state=42, n_jobs=-1)
+        search.fit(X_train_sc, y_train)
+        best_params = {k.replace('clf__', ''): v for k, v in search.best_params_.items()}
+    else:
+        search = RandomizedSearchCV(
+            base_estimator, search_space, n_iter=20, cv=3,
+            scoring='accuracy', random_state=42, n_jobs=-1)
+        search.fit(X_train_sc, y_train)
+        best_params = search.best_params_
 
-    best_name = max(models, key=lambda k: models[k][1])
-    best_model = models[best_name][0]
-    best_acc = models[best_name][1]
-    print(f"\n✓ Best model: {best_name}  (accuracy={best_acc:.4f})")
+    print(f"  Best params: {best_params}")
+    print(f"  Best tuning CV score: {search.best_score_:.4f}")
 
-    y_pred = best_model.predict(X_test_sc)
-    print("\nClassification Report:")
+    # ── Step 3: fit the final tuned model on the full training set ──
+    final_estimator = estimators[best_name].__class__(**{
+        **estimators[best_name].get_params(), **best_params
+    })
+    if HAS_SMOTE:
+        sm = SMOTE(random_state=42)
+        X_train_final, y_train_final = sm.fit_resample(X_train_sc, y_train)
+    else:
+        X_train_final, y_train_final = X_train_sc, y_train
+
+    final_estimator.fit(X_train_final, y_train_final)
+    test_acc = accuracy_score(y_test, final_estimator.predict(X_test_sc))
+    print(f"\n✓ Final held-out test accuracy: {test_acc:.4f}")
+
+    y_pred = final_estimator.predict(X_test_sc)
+    print("\nClassification Report (held-out test set):")
     print(classification_report(y_test, y_pred, target_names=LABELS))
 
     with open(MODEL_PATH, 'wb') as f:
-        pickle.dump(best_model, f)
+        pickle.dump(final_estimator, f)
     with open(SCALER_PATH, 'wb') as f:
         pickle.dump(scaler, f)
     with open(META_PATH, 'wb') as f:
-        pickle.dump({'features': FEATURES, 'labels': LABELS,
-                     'best_model': best_name, 'accuracy': round(best_acc, 4)}, f)
+        pickle.dump({
+            'features': FEATURES, 'labels': LABELS,
+            'best_model': best_name,
+            'cv_accuracy': round(best_cv_mean, 4),
+            'cv_accuracy_std': round(best_cv_std, 4),
+            'test_accuracy': round(test_acc, 4),
+            'accuracy': round(test_acc, 4),  # kept for backward-compat with app.py's meta.get('accuracy')
+            'best_params': best_params,
+        }, f)
 
-    print("Saved → models/model.pkl | scaler.pkl | meta.pkl")
+    print("\nSaved -> models/model.pkl | scaler.pkl | meta.pkl")
     _plot_confusion(y_test, y_pred)
-    _plot_importance(best_model, best_name)
+    _plot_importance(final_estimator, best_name)
     print("\nDone! Run the app: streamlit run app.py")
 
 
@@ -140,7 +237,7 @@ def _plot_importance(model, name):
     colors = ['#534AB7' if v > imp.median() else '#AFA9EC' for v in imp.values]
     fig, ax = plt.subplots(figsize=(8, 6))
     imp.plot.barh(ax=ax, color=colors)
-    ax.set_title(f'Feature Importance — {name}', fontsize=14, pad=12)
+    ax.set_title(f'Feature Importance -- {name}', fontsize=14, pad=12)
     ax.set_xlabel('Importance score')
     ax.axvline(imp.median(), ls='--', lw=1, color='#888', label='median')
     ax.legend(fontsize=10)

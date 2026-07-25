@@ -77,5 +77,5 @@ def toggle_control():
     in the navbar.
     """
     st.session_state.setdefault("dark_mode", True)
-    label = "🌙 Dark" if is_dark_mode() else "☀️ Light"
+    label = "Dark" if is_dark_mode() else "Light"
     st.toggle(label, key="dark_mode", help="Site-wide theme -- applies to every page")

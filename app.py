@@ -21,6 +21,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+st.session_state.setdefault("dark_mode", True)
 inject_global_css()
 init_all()
 

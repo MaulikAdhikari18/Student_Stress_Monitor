@@ -48,7 +48,7 @@ def render(user: dict, history_df: pd.DataFrame, model_ready: bool, meta: dict |
             value_html = (
                 f'<h1 style="margin:0;font-size:30px;color:var(--text-primary);font-weight:500;">'
                 f'{level_emoji} {level_name} '
-                f'<span style="font-size:14px;color:var(--text-secondary);font-weight:400;">'
+                f'<span style="font-size:16px;color:var(--text-secondary);font-weight:400;">'
                 f'{stress_score}/100</span></h1>'
             )
             ring_html = progress_ring_svg(stress_score, level_color, size=56)

@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from src.config import COLORS, CHART_COLORS
-from src.ui.components import num_card, render_html
+from src.ui.components import num_card, render_html, dataframe_html
 
 
 def render(username: str, history_df: pd.DataFrame):
@@ -240,6 +240,6 @@ def render(username: str, history_df: pd.DataFrame):
             st.plotly_chart(fig_box, use_container_width=True)
 
     with st.expander("📋 View raw data"):
-        st.dataframe(hdf.drop(columns=['id', 'user_id'], errors='ignore'), use_container_width=True)
+        render_html(dataframe_html(hdf.drop(columns=['id', 'user_id'], errors='ignore')))
         csv = hdf.to_csv(index=False).encode()
         st.download_button("⬇️ Download CSV", csv, f"{username}_stress_history.csv", "text/csv")
