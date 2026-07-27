@@ -40,7 +40,7 @@ NAV_PAGES = [
 
 
 def _render_navbar(username: str):
-    n1, n2, n3, n4, n5, n6, nt, nr = st.columns([1.1, 1.0, 0.9, 0.9, 0.9, 0.9, 1.4, 1.1])
+    n1, n2, n3, n4, n5, n6, nt, nr = st.columns([1.0, 1.0, 0.9, 0.9, 0.9, 0.9, 1.7, 1.1])
     for col, (pg_key, pg_label) in zip([n1, n2, n3, n4, n5, n6], NAV_PAGES):
         with col:
             is_active = st.session_state["page"] == pg_key

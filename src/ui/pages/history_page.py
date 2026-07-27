@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from src.config import COLORS, CHART_COLORS
-from src.ui.components import num_card, render_html, dataframe_html
+from src.ui.components import num_card, render_html, dataframe_html, aurora_hero_card, progress_ring_svg
 
 
 def render(username: str, history_df: pd.DataFrame):
@@ -36,17 +36,27 @@ def render(username: str, history_df: pd.DataFrame):
     trend_val = hdf['stress_score'].iloc[-1] - hdf['stress_score'].iloc[-2] if len(hdf) > 1 else 0
     trend_str = (f"↓ {abs(trend_val):.0f} vs prev" if trend_val < 0
                  else (f"↑ {trend_val:.0f} vs prev" if trend_val > 0 else "→ No change"))
-    trend_color = "#97C459" if trend_val < 0 else ("#F09595" if trend_val > 0 else "#888")
+    trend_color = "#97C459" if trend_val < 0 else ("#F09595" if trend_val > 0 else "var(--text-muted)")
+
+    latest_level = hdf.get('stress_level', pd.Series(['Low'])).iloc[-1]
+    latest_color = level_color_map.get(latest_level, '#AFA9EC')
+    value_html = (
+        f'<h1 style="margin:0;font-size:26px;color:var(--text-primary);font-weight:500;">'
+        f'{last_stress:.0f}<span style="font-size:15px;color:var(--text-secondary);font-weight:400;"> / 100</span></h1>'
+        f'<p style="margin:2px 0 0;font-size:0.85rem;color:{trend_color};">{trend_str}</p>'
+    )
+    render_html(aurora_hero_card("Latest session", value_html, progress_ring_svg(last_stress, latest_color)))
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
     nc1, nc2, nc3, nc4, nc5 = st.columns(5)
-    for col, lbl, val, sub, clr in [
-        (nc1, "Sessions", str(len(hdf)), "total logged", "#AFA9EC"),
-        (nc2, "Avg Score", f"{avg_stress:.0f}", "out of 100", "#AFA9EC"),
-        (nc3, "Latest Score", f"{last_stress:.0f}", trend_str, trend_color),
-        (nc4, "Best Score", f"{min_stress:.0f}", "lowest stress", "#97C459"),
-        (nc5, "Worst Score", f"{max_stress:.0f}", "highest stress", "#F09595"),
+    for col, lbl, val, sub, clr, icon in [
+        (nc1, "Sessions", str(len(hdf)), "total logged", "var(--accent-purple)", "ti ti-calendar-event"),
+        (nc2, "Avg Score", f"{avg_stress:.0f}", "out of 100", "var(--accent-purple)", "ti ti-chart-line"),
+        (nc3, "Latest Score", f"{last_stress:.0f}", trend_str, trend_color, "ti ti-activity"),
+        (nc4, "Best Score", f"{min_stress:.0f}", "lowest stress", "#97C459", "ti ti-mood-smile"),
+        (nc5, "Worst Score", f"{max_stress:.0f}", "highest stress", "#F09595", "ti ti-mood-sad"),
     ]:
-        col.markdown(num_card(lbl, val, sub, clr), unsafe_allow_html=True)
+        col.markdown(num_card(lbl, val, sub, clr, icon_class=icon), unsafe_allow_html=True)
 
     st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
@@ -87,15 +97,15 @@ def render(username: str, history_df: pd.DataFrame):
     days_ok_st = int((hdf['study'] <= 8).sum())
 
     sc1, sc2, sc3, sc4, sc5, sc6 = st.columns(6)
-    for col, lbl, val, sub, clr in [
-        (sc1, "Avg Sleep", f"{avg_sleep:.1f}h", "per night", "#AFA9EC"),
-        (sc2, "Lowest Sleep", f"{min_sleep:.1f}h", "worst night", "#F09595"),
-        (sc3, "Nights ≥7h", f"{nights_ok}", f"of {len(hdf)} logged", "#97C459"),
-        (sc4, "Avg Study", f"{avg_study:.1f}h", "per day", "#AFA9EC"),
-        (sc5, "Max Study", f"{max_study:.1f}h", "heaviest day", "#FAC775"),
-        (sc6, "Days ≤8h Study", f"{days_ok_st}", f"of {len(hdf)} logged", "#97C459"),
+    for col, lbl, val, sub, clr, icon in [
+        (sc1, "Avg Sleep", f"{avg_sleep:.1f}h", "per night", "var(--accent-purple)", "ti ti-moon"),
+        (sc2, "Lowest Sleep", f"{min_sleep:.1f}h", "worst night", "#F09595", "ti ti-alert-triangle"),
+        (sc3, "Nights ≥7h", f"{nights_ok}", f"of {len(hdf)} logged", "#97C459", "ti ti-check"),
+        (sc4, "Avg Study", f"{avg_study:.1f}h", "per day", "var(--accent-purple)", "ti ti-book"),
+        (sc5, "Max Study", f"{max_study:.1f}h", "heaviest day", "#FAC775", "ti ti-alert-triangle"),
+        (sc6, "Days ≤8h Study", f"{days_ok_st}", f"of {len(hdf)} logged", "#97C459", "ti ti-check"),
     ]:
-        col.markdown(num_card(lbl, val, sub, clr), unsafe_allow_html=True)
+        col.markdown(num_card(lbl, val, sub, clr, icon_class=icon), unsafe_allow_html=True)
 
     st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
@@ -141,15 +151,15 @@ def render(username: str, history_df: pd.DataFrame):
         hi_screen = int((hdf['screen'] > 4).sum())
 
         lc1, lc2, lc3, lc4, lc5 = st.columns(5)
-        for col, lbl, val, sub, clr in [
-            (lc1, "Avg Screen Time", f"{avg_screen:.1f}h", "per day", "#FAC775" if avg_screen > 4 else "#97C459"),
-            (lc2, "Days Screen >4h", f"{hi_screen}", f"of {len(hdf)} days", "#FAC775"),
-            (lc3, "Avg Anxiety", f"{avg_anxiety:.1f}", "out of 10", "#F09595" if avg_anxiety >= 6 else "#97C459"),
-            (lc4, "Days Anxiety ≥7", f"{hi_anxiety}", "high-anxiety days", "#F09595"),
+        for col, lbl, val, sub, clr, icon in [
+            (lc1, "Avg Screen Time", f"{avg_screen:.1f}h", "per day", "#FAC775" if avg_screen > 4 else "#97C459", "ti ti-device-mobile"),
+            (lc2, "Days Screen >4h", f"{hi_screen}", f"of {len(hdf)} days", "#FAC775", "ti ti-alert-triangle"),
+            (lc3, "Avg Anxiety", f"{avg_anxiety:.1f}", "out of 10", "#F09595" if avg_anxiety >= 6 else "#97C459", "ti ti-brain"),
+            (lc4, "Days Anxiety ≥7", f"{hi_anxiety}", "high-anxiety days", "#F09595", "ti ti-alert-triangle"),
             (lc5, "Exercise Days", f"{ex_days}", f"of {len(hdf)} logged",
-             "#97C459" if ex_days / max(1, len(hdf)) >= 0.5 else "#F09595"),
+             "#97C459" if ex_days / max(1, len(hdf)) >= 0.5 else "#F09595", "ti ti-run"),
         ]:
-            col.markdown(num_card(lbl, val, sub, clr), unsafe_allow_html=True)
+            col.markdown(num_card(lbl, val, sub, clr, icon_class=icon), unsafe_allow_html=True)
 
         st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
 
@@ -185,6 +195,8 @@ def render(username: str, history_df: pd.DataFrame):
         render_html('<div class="section-header">🍩 Stress Level Distribution & Spread</div>')
 
         level_counts = hdf['stress_level'].value_counts()
+        LEVEL_ICONS = {'Low': 'ti ti-mood-smile', 'Moderate': 'ti ti-mood-neutral',
+                       'High': 'ti ti-mood-sad', 'Critical': 'ti ti-alert-triangle'}
 
         dcols = st.columns(4)
         for i, lvl in enumerate(['Low', 'Moderate', 'High', 'Critical']):
@@ -194,7 +206,8 @@ def render(username: str, history_df: pd.DataFrame):
             lvl_data = hdf[hdf['stress_level'] == lvl]['stress_score'].dropna()
             avg_lvl = f"{lvl_data.mean():.0f}" if not lvl_data.empty else "—"
             dcols[i].markdown(
-                num_card(f"{lvl} Sessions", f"{cnt}", f"{pct:.0f}% · avg score {avg_lvl}", clr, clr),
+                num_card(f"{lvl} Sessions", f"{cnt}", f"{pct:.0f}% · avg score {avg_lvl}", clr, clr,
+                         icon_class=LEVEL_ICONS[lvl]),
                 unsafe_allow_html=True)
 
         st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)

@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from src.config import COLORS as LEVEL_COLOR
-from src.ui.components import summary_card, render_html, dataframe_html
+from src.ui.components import summary_card, render_html, dataframe_html, aurora_hero_card, progress_ring_svg
 
 
 def render(history_df: pd.DataFrame):
@@ -58,7 +58,6 @@ def _render_week_section(week_df, week_start, week_end, today):
         st.info("No entries this week yet.")
         return
 
-    wc1, wc2, wc3, wc4 = st.columns(4)
     avg_stress_w = week_df["stress_score"].mean()
     avg_sleep_w = week_df["sleep"].mean()
     avg_study_w = week_df["study"].mean()
@@ -68,15 +67,24 @@ def _render_week_section(week_df, week_start, week_end, today):
     dominant_w = week_df["stress_level"].mode()[0] if "stress_level" in week_df.columns else "—"
     dc_w = LEVEL_COLOR.get(dominant_w, "#888")
 
+    value_html = (
+        f'<h1 style="margin:0;font-size:26px;color:var(--text-primary);font-weight:500;">'
+        f'{avg_stress_w:.0f}<span style="font-size:15px;color:var(--text-secondary);font-weight:400;"> / 100</span></h1>'
+        f'<p style="margin:2px 0 0;font-size:0.85rem;color:{dc_w};">Dominant: {dominant_w}</p>'
+    )
+    render_html(aurora_hero_card("Weekly average stress", value_html, progress_ring_svg(avg_stress_w, dc_w)))
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
+    wc1, wc2, wc3, wc4 = st.columns(4)
     cards_w = [
-        ("Avg Stress Score", f"{avg_stress_w:.0f}", f"Dominant: {dominant_w}", dc_w),
-        ("Avg Sleep/Night", f"{avg_sleep_w:.1f}h", "Target: 7–9h", "#AFA9EC"),
-        ("Avg Study/Day", f"{avg_study_w:.1f}h", "Recommended: ≤8h", "#AFA9EC"),
+        ("Avg Stress Score", f"{avg_stress_w:.0f}", f"Dominant: {dominant_w}", dc_w, "ti ti-gauge"),
+        ("Avg Sleep/Night", f"{avg_sleep_w:.1f}h", "Target: 7–9h", "var(--accent-purple)", "ti ti-moon"),
+        ("Avg Study/Day", f"{avg_study_w:.1f}h", "Recommended: ≤8h", "var(--accent-purple)", "ti ti-book"),
         ("Exercise Days", f"{exercise_days_w}/{days_logged_w}", f"{exercise_days_w} of {days_logged_w} logged days",
-         "#97C459" if days_logged_w > 0 and exercise_days_w / days_logged_w >= 0.5 else "#F09595"),
+         "#97C459" if days_logged_w > 0 and exercise_days_w / days_logged_w >= 0.5 else "#F09595", "ti ti-run"),
     ]
-    for col, (label, val, sub, clr) in zip([wc1, wc2, wc3, wc4], cards_w):
-        col.markdown(summary_card(label, val, sub, clr), unsafe_allow_html=True)
+    for col, (label, val, sub, clr, icon) in zip([wc1, wc2, wc3, wc4], cards_w):
+        col.markdown(summary_card(label, val, sub, clr, icon_class=icon), unsafe_allow_html=True)
 
     st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
     render_html('<div class="section-header">Day-by-Day Breakdown</div>')
@@ -158,7 +166,7 @@ def _render_week_section(week_df, week_start, week_end, today):
             f'<div style="display:flex;align-items:flex-start;gap:10px;padding:0.6rem 0.9rem;'
             f'background:{clr}11;border-left:3px solid {clr};border-radius:0 8px 8px 0;margin-bottom:6px;">'
             f'<span style="font-size:1rem;">{icon}</span>'
-            f'<span style="font-size:0.85rem;color:#ccc;">{msg}</span></div>')
+            f'<span style="font-size:0.85rem;color:var(--text-primary);">{msg}</span></div>')
 
 
 def _render_month_section(month_df, today):
@@ -182,16 +190,25 @@ def _render_month_section(month_df, today):
     best_day = month_df.loc[month_df["stress_score"].idxmin()]
     worst_day = month_df.loc[month_df["stress_score"].idxmax()]
 
+    value_html = (
+        f'<h1 style="margin:0;font-size:26px;color:var(--text-primary);font-weight:500;">'
+        f'{avg_stress_m:.0f}<span style="font-size:15px;color:var(--text-secondary);font-weight:400;"> / 100</span></h1>'
+        f'<p style="margin:2px 0 0;font-size:0.85rem;color:{dc_m};">Dominant: {dominant_m}</p>'
+    )
+    render_html(aurora_hero_card("Monthly average stress", value_html, progress_ring_svg(avg_stress_m, dc_m),
+                                  blob_colors=("aurora-blob-teal", "aurora-blob-purple")))
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
     mc1, mc2, mc3, mc4 = st.columns(4)
     month_cards = [
-        ("Monthly Avg Stress", f"{avg_stress_m:.0f}", f"Dominant: {dominant_m}", dc_m),
-        ("Avg Sleep/Night", f"{avg_sleep_m:.1f}h", "Target: 7–9h", "#AFA9EC"),
+        ("Monthly Avg Stress", f"{avg_stress_m:.0f}", f"Dominant: {dominant_m}", dc_m, "ti ti-gauge"),
+        ("Avg Sleep/Night", f"{avg_sleep_m:.1f}h", "Target: 7–9h", "var(--accent-purple)", "ti ti-moon"),
         ("Exercise Days", f"{exercise_days_m}/{days_in_month}", f"{exercise_days_m} of {days_in_month} logged days",
-         "#97C459" if days_in_month > 0 and exercise_days_m / days_in_month >= 0.5 else "#FAC775"),
-        ("Avg Screen Time", f"{avg_screen_m:.1f}h", "Target: ≤4h/day", "#AFA9EC" if avg_screen_m <= 4 else "#F09595"),
+         "#97C459" if days_in_month > 0 and exercise_days_m / days_in_month >= 0.5 else "#FAC775", "ti ti-run"),
+        ("Avg Screen Time", f"{avg_screen_m:.1f}h", "Target: ≤4h/day", "var(--accent-purple)" if avg_screen_m <= 4 else "#F09595", "ti ti-device-mobile"),
     ]
-    for col, (label, val, sub, clr) in zip([mc1, mc2, mc3, mc4], month_cards):
-        col.markdown(summary_card(label, val, sub, clr), unsafe_allow_html=True)
+    for col, (label, val, sub, clr, icon) in zip([mc1, mc2, mc3, mc4], month_cards):
+        col.markdown(summary_card(label, val, sub, clr, icon_class=icon), unsafe_allow_html=True)
 
     st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
@@ -311,4 +328,4 @@ def _render_month_section(month_df, today):
             f'<div style="display:flex;align-items:flex-start;gap:10px;padding:0.6rem 0.9rem;'
             f'background:{clr}11;border-left:3px solid {clr};border-radius:0 8px 8px 0;margin-bottom:6px;">'
             f'<span style="font-size:1rem;">{icon}</span>'
-            f'<span style="font-size:0.85rem;color:#ccc;">{msg}</span></div>')
+            f'<span style="font-size:0.85rem;color:var(--text-primary);">{msg}</span></div>')

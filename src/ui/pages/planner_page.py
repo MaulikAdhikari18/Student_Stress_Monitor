@@ -25,7 +25,7 @@ def render(user_id: int, stress_score: float, saved_goals: dict):
     block_min, break_min, break_label = get_break_schedule(stress_score)
     render_html(f"""
     <div class="break-box">
-        <div style="font-size:0.78rem;font-weight:600;color:#AFA9EC;
+        <div style="font-size:0.78rem;font-weight:600;color:var(--accent-purple);
                     text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">
             ⏱ Recommended study rhythm for today
         </div>
@@ -154,13 +154,13 @@ def _render_study_timer(block_min: int, break_min: int):
     <div class="timer-container {phase_cls}">
         <div class="timer-label">{phase_icon} {phase_lbl} — Session #{ss['sessions_done'] + 1}</div>
         <div class="timer-display">{mins:02d}:{secs:02d}</div>
-        <div style="margin-top:1rem;background:rgba(255,255,255,0.1);
+        <div style="margin-top:1rem;background:var(--border);
                     border-radius:8px;height:8px;overflow:hidden;">
             <div style="width:{pct_done}%;height:100%;
                         background:{'#639922' if ss['timer_phase']=='study' else '#534AB7'};
                         border-radius:8px;transition:width 0.5s ease;"></div>
         </div>
-        <div style="font-size:0.8rem;color:#aaa;margin-top:6px;">{pct_done}% complete</div>
+        <div style="font-size:0.8rem;color:var(--text-muted);margin-top:6px;">{pct_done}% complete</div>
     </div>""")
 
     btn1, btn2, btn3, btn4 = st.columns(4)
@@ -210,7 +210,7 @@ def _render_study_timer(block_min: int, break_min: int):
             f'<div style="text-align:center;padding:0.4rem;background:rgba(83,74,183,0.15);'
             f'border-radius:8px;font-size:0.82rem;">'
             f'🔥 <strong>{ss["sessions_done"]}</strong> sessions<br>'
-            f'<span style="color:#AFA9EC;">{total_study_done}m studied</span></div>')
+            f'<span style="color:var(--accent-purple);">{total_study_done}m studied</span></div>')
 
     if ss['timer_running']:
         time.sleep(1)
@@ -318,7 +318,7 @@ def _render_weekly_schedule(tasks_df: pd.DataFrame, stress_score: float, daily_l
                         pri_cls = f"pri-{t['priority'].lower()}"
                         render_html(f"""
                         <div style="font-size:0.82rem;padding:3px 0;
-                                    border-bottom:0.5px solid rgba(255,255,255,0.06);">
+                                    border-bottom:0.5px solid var(--border);">
                             <span class="{pri_cls}">{t['priority'][0]}</span>
                             &nbsp;<strong>{t['subject']}</strong>
                             <span style="opacity:0.55;"> {t['duration_h']}h</span>

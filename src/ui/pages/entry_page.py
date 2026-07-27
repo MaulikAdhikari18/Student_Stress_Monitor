@@ -14,7 +14,7 @@ from src.db.sessions import save_session
 from src.ml.scoring import compute_stress_score, daily_exercise_to_weekly
 from src.ml.model import predict_stress
 from src.ui.styles import inject_entry_section_css, inject_calendar_css
-from src.ui.components import stress_bg, stress_border, render_html
+from src.ui.components import stress_bg, stress_border, render_html, aurora_hero_card, progress_ring_svg, metric_tile
 
 
 def render(user_id: int, history_df, model, scaler, model_ready: bool):
@@ -59,7 +59,7 @@ def render(user_id: int, history_df, model, scaler, model_ready: bool):
         with mn2:
             st.markdown(
                 f'<div style="text-align:center;font-weight:700;font-size:1rem;'
-                f'color:#AFA9EC;padding-top:4px;">{cal_mod.month_name[cm]} {cy}</div>',
+                f'color:var(--accent-purple);padding-top:4px;">{cal_mod.month_name[cm]} {cy}</div>',
                 unsafe_allow_html=True)
         with mn3:
             if st.button("▶", key="cal_next"):
@@ -121,19 +121,19 @@ def render(user_id: int, history_df, model, scaler, model_ready: bool):
 
         render_html("""
 <div style="display:flex;gap:8px;margin-top:0.6rem;flex-wrap:wrap;">
-  <span style="font-size:0.7rem;color:#555;display:flex;align-items:center;gap:4px;">
+  <span style="font-size:0.7rem;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
     <span style="width:9px;height:9px;border-radius:3px;background:rgba(99,153,34,0.6);
                  border:1.5px solid #639922;display:inline-block;"></span>Low</span>
-  <span style="font-size:0.7rem;color:#555;display:flex;align-items:center;gap:4px;">
+  <span style="font-size:0.7rem;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
     <span style="width:9px;height:9px;border-radius:3px;background:rgba(186,117,23,0.55);
                  border:1.5px solid #EF9F27;display:inline-block;"></span>Moderate</span>
-  <span style="font-size:0.7rem;color:#555;display:flex;align-items:center;gap:4px;">
+  <span style="font-size:0.7rem;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
     <span style="width:9px;height:9px;border-radius:3px;background:rgba(153,60,29,0.55);
                  border:1.5px solid #D85A30;display:inline-block;"></span>High</span>
-  <span style="font-size:0.7rem;color:#555;display:flex;align-items:center;gap:4px;">
+  <span style="font-size:0.7rem;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
     <span style="width:9px;height:9px;border-radius:3px;background:rgba(163,45,45,0.6);
                  border:1.5px solid #E24B4A;display:inline-block;"></span>Critical</span>
-  <span style="font-size:0.7rem;color:#555;display:flex;align-items:center;gap:4px;">
+  <span style="font-size:0.7rem;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
     <span style="width:9px;height:9px;border-radius:3px;border:1.5px dashed #AFA9EC;
                  display:inline-block;"></span>Today</span>
 </div>""")
@@ -147,19 +147,19 @@ def render(user_id: int, history_df, model, scaler, model_ready: bool):
         if existing_level:
             ec = {"Low": "#639922", "Moderate": "#EF9F27", "High": "#D85A30", "Critical": "#E24B4A"}.get(existing_level, "#888")
             render_html(
-                f'<div style="background:rgba(255,255,255,0.04);border:1px solid {ec}44;'
+                f'<div style="background:var(--bg-surface);border:1px solid {ec}44;'
                 f'border-left:4px solid {ec};border-radius:12px;padding:0.8rem 1rem;margin-bottom:0.8rem;">'
-                f'<div style="font-size:0.72rem;color:#777;text-transform:uppercase;letter-spacing:0.05em;">'
+                f'<div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">'
                 f'Existing entry — {sel_date:%A, %d %b %Y}</div>'
                 f'<div style="font-size:1.3rem;font-weight:800;color:{ec};">{existing_level} Stress</div>'
-                f'<div style="font-size:0.82rem;color:#888;">Score: {existing_score:.0f}/100</div></div>')
+                f'<div style="font-size:0.82rem;color:var(--text-muted);">Score: {existing_score:.0f}/100</div></div>')
         else:
             render_html(
-                f'<div style="background:rgba(83,74,183,0.1);border:1px solid rgba(175,169,236,0.2);'
+                f'<div style="background:var(--bg-surface);border:1px solid var(--border);'
                 f'border-radius:12px;padding:0.8rem 1rem;margin-bottom:0.8rem;">'
-                f'<div style="font-size:0.72rem;color:#777;text-transform:uppercase;letter-spacing:0.05em;">Logging entry for</div>'
-                f'<div style="font-size:1.1rem;font-weight:700;color:#AFA9EC;">{sel_date:%A, %d %b %Y}</div>'
-                f'<div style="font-size:0.8rem;color:#666;">No entry yet</div></div>')
+                f'<div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;">Logging entry for</div>'
+                f'<div style="font-size:1.1rem;font-weight:700;color:var(--accent-purple);">{sel_date:%A, %d %b %Y}</div>'
+                f'<div style="font-size:0.8rem;color:var(--text-muted);">No entry yet</div></div>')
 
         with st.form("entry_form"):
             inject_entry_section_css()
@@ -244,30 +244,26 @@ def render(user_id: int, history_df, model, scaler, model_ready: bool):
 
         rc1, rc2 = st.columns(2)
         with rc1:
-            render_html(
-                f'<div style="background:rgba(255,255,255,0.04);border:1px solid {level_color}55;'
-                f'border-top:4px solid {level_color};border-radius:14px;padding:1rem 1.1rem;margin-top:0.5rem;">'
-                f'<div style="font-size:0.72rem;color:#888;text-transform:uppercase;letter-spacing:0.05em;">Live Result</div>'
-                f'<div style="font-size:1.8rem;font-weight:800;color:{level_color};margin:4px 0 2px;">{level_emoji} {level_name}</div>'
-                f'<div style="font-size:0.85rem;color:#aaa;margin-bottom:8px;">Score: <strong style="color:#fff">{stress_score}</strong>/100</div>'
-                f'<div style="background:rgba(255,255,255,0.07);border-radius:5px;height:7px;overflow:hidden;">'
-                f'<div style="width:{stress_score}%;height:100%;background:{level_color};border-radius:5px;"></div>'
-                f'</div></div>')
+            value_html = (
+                f'<h1 style="margin:0;font-size:26px;color:var(--text-primary);font-weight:500;">'
+                f'{level_emoji} {level_name} '
+                f'<span style="font-size:15px;color:var(--text-secondary);font-weight:400;">'
+                f'{stress_score}/100</span></h1>'
+            )
+            ring_html = progress_ring_svg(stress_score, level_color, size=52)
+            render_html(aurora_hero_card("Live Result", value_html, ring_html))
         with rc2:
-            exer_txt = "✅ Exercised" if exercise else "❌ Rest day"
+            exer_txt = "Yes" if exercise else "Rest day"
+            tiles = [
+                metric_tile("ti ti-battery", f"{recovery}%", "Recovery", "#5DCAA5"),
+                metric_tile("ti ti-flame", f"{burnout}", "Burnout Risk", "#D4537E"),
+                metric_tile("ti ti-moon", f"{sleep}h", "Sleep"),
+                metric_tile("ti ti-run", exer_txt, "Exercise"),
+            ]
             render_html(
-                f'<div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);'
-                f'border-radius:14px;padding:1rem 1.1rem;margin-top:0.5rem;">'
-                f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'
-                f'<div><div style="font-size:0.7rem;color:#666;">Recovery</div>'
-                f'<div style="font-size:1.4rem;font-weight:800;color:#97C459;">{recovery}%</div></div>'
-                f'<div><div style="font-size:0.7rem;color:#666;">Burnout Risk</div>'
-                f'<div style="font-size:1.4rem;font-weight:800;color:#F09595;">{burnout}</div></div>'
-                f'<div><div style="font-size:0.7rem;color:#666;">Sleep</div>'
-                f'<div style="font-size:1.4rem;font-weight:800;color:#AFA9EC;">{sleep}h</div></div>'
-                f'<div><div style="font-size:0.7rem;color:#666;">Exercise</div>'
-                f'<div style="font-size:1rem;font-weight:700;color:#AFA9EC;padding-top:4px;">{exer_txt}</div></div>'
-                f'</div></div>')
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:0.5rem;">'
+                + "".join(tiles) + '</div>'
+            )
 
         if save_btn:
             save_session(user_id, stress_score, level_name,

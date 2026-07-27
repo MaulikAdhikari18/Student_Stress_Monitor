@@ -3,10 +3,29 @@
 import streamlit as st
 
 from src.ui.styles import inject_landing_css
+from src.ml.model import load_model
+
+
+def _current_accuracy_label() -> str:
+    """
+    Reads the real, current model's accuracy from meta.pkl instead of a
+    hardcoded number -- the old version showed a fixed "81.5%" that never
+    updated after retraining (a real, confirmed staleness bug: the actual
+    model was at 86.5% while this said 81.5%). Falls back gracefully if no
+    model has been trained yet.
+    """
+    try:
+        _, _, meta = load_model()
+        if meta and 'accuracy' in meta:
+            return f"{meta['accuracy'] * 100:.1f}%"
+    except Exception:
+        pass
+    return "—"
 
 
 def show_landing_page():
     inject_landing_css()
+    accuracy_label = _current_accuracy_label()
 
     st.markdown("""
     <div class="landing-hero">
@@ -19,14 +38,14 @@ def show_landing_page():
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("""
+    st.markdown(f"""
     <div class="stat-row">
         <div class="stat-item">
             <div class="stat-val">14</div>
             <div class="stat-lbl">Daily inputs tracked</div>
         </div>
         <div class="stat-item">
-            <div class="stat-val">81.5%</div>
+            <div class="stat-val">{accuracy_label}</div>
             <div class="stat-lbl">Model accuracy</div>
         </div>
         <div class="stat-item">

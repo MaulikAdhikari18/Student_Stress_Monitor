@@ -16,11 +16,16 @@ from src.config import COLORS as LEVEL_COLOR
 
 
 def num_card(label: str, value: str, sub: str = "", color: str = "var(--accent-purple)",
-             border_color: str | None = None) -> str:
+             border_color: str | None = None, icon_class: str | None = None) -> str:
     bc = border_color or color
+    icon_html = (
+        f'<i class="{icon_class}" style="font-size:15px;color:{color};margin-bottom:2px;display:inline-block;" aria-hidden="true"></i><br>'
+        if icon_class else ""
+    )
     return (
         f'<div style="background:var(--bg-surface);border:0.5px solid var(--border);'
-        f'border-top:3px solid {bc};border-radius:12px;padding:0.8rem 1rem;">'
+        f'border-top:3px solid {bc};border-radius:12px;padding:0.8rem 1rem;box-shadow:var(--card-shadow);">'
+        f'{icon_html}'
         f'<div style="font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;'
         f'letter-spacing:0.04em;margin-bottom:4px;">{label}</div>'
         f'<div style="font-size:1.7rem;font-weight:800;color:{color};line-height:1;">{value}</div>'
@@ -29,10 +34,16 @@ def num_card(label: str, value: str, sub: str = "", color: str = "var(--accent-p
     )
 
 
-def summary_card(label: str, value: str, sub: str, color: str = "var(--accent-purple)") -> str:
+def summary_card(label: str, value: str, sub: str, color: str = "var(--accent-purple)",
+                  icon_class: str | None = None) -> str:
+    icon_html = (
+        f'<i class="{icon_class}" style="font-size:16px;color:{color};margin-bottom:2px;display:inline-block;" aria-hidden="true"></i><br>'
+        if icon_class else ""
+    )
     return (
         f'<div style="background:var(--bg-surface);border:0.5px solid var(--border);'
-        f'border-radius:14px;padding:0.9rem 1.1rem;">'
+        f'border-radius:14px;padding:0.9rem 1.1rem;box-shadow:var(--card-shadow);">'
+        f'{icon_html}'
         f'<div style="font-size:0.8rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.04em;">{label}</div>'
         f'<div style="font-size:1.8rem;font-weight:800;color:{color};line-height:1.1;margin:4px 0 2px;">{value}</div>'
         f'<div style="font-size:0.86rem;color:var(--text-muted);">{sub}</div>'

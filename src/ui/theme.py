@@ -69,13 +69,43 @@ def current_theme() -> dict:
     return DARK if is_dark_mode() else LIGHT
 
 
+def _sync_dark_mode_from_widget():
+    """on_change callback: copies the widget's own value into our stable
+    app-level 'dark_mode' key. Runs only when the user actually flips the
+    toggle -- never on unrelated reruns (nav clicks, etc)."""
+    st.session_state["dark_mode"] = st.session_state["_dark_mode_widget"]
+
+
 def toggle_control():
     """
-    Renders the single, site-wide dark/light toggle. Bound to
-    st.session_state['dark_mode'] via `key`, so it's one shared value
-    across every page -- switching pages never resets it. Call once,
-    in the navbar.
+    Renders the single, site-wide dark/light toggle.
+
+    Uses a DIFFERENT internal widget key ("_dark_mode_widget") than the
+    stable app-level key ("dark_mode") that the rest of the app reads via
+    is_dark_mode()/current_theme(). The widget is always given an explicit
+    value= (read from the stable key) rather than relying on Streamlit's
+    implicit key-based restoration, and an on_change callback copies the
+    widget's value into the stable key only when the user actually
+    interacts with it.
+
+    This replaces an earlier version that bound the widget directly via
+    key="dark_mode" and relied on implicit restoration. That was
+    confirmed (via OCR'd screen recording, not just visual inspection --
+    an earlier reading of the same footage was mistakenly read as "stays
+    True" when it actually showed a flip to False) to actually reset the
+    stored value to False on ordinary page navigation, not just a
+    rendering glitch. The explicit value=/on_change pattern below is
+    Streamlit's documented-safe approach for exactly this failure mode:
+    the widget's displayed state is always explicitly seeded from OUR
+    value every render, rather than trusting Streamlit to correctly
+    restore it on its own.
     """
     st.session_state.setdefault("dark_mode", True)
-    label = "Dark" if is_dark_mode() else "Light"
-    st.toggle(label, key="dark_mode", help="Site-wide theme -- applies to every page")
+    st.toggle(
+        "Dark mode",
+        value=st.session_state["dark_mode"],
+        key="_dark_mode_widget",
+        on_change=_sync_dark_mode_from_widget,
+        help="Site-wide theme -- applies to every page",
+    )
+    st.caption("🌙 Dark" if is_dark_mode() else "☀️ Light")

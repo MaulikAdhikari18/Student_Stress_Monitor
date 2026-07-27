@@ -28,8 +28,27 @@ from src.ui.theme import current_theme
 
 
 def _root_vars(theme: dict) -> str:
-    lines = "\n".join(f"  --{k}: {v};" for k, v in theme.items())
+    """
+    !important on custom-property declarations is valid CSS and follows
+    normal !important cascade rules: if two competing `:root` blocks set
+    the same --token, the one with !important wins regardless of DOM
+    order, unless the other side also uses !important.
+
+    This replaces an earlier, broken attempt at this same fix that used a
+    <script> tag to set these variables via JS -- confirmed via Streamlit's
+    own GitHub issues that st.markdown(unsafe_allow_html=True) does not
+    execute <script> tags at all, so that "fix" was silently inert and
+    never actually did anything. This is a real, testable CSS-only fix
+    for the same underlying problem: our theme flipping to light on
+    navigation even though st.session_state['dark_mode'] was confirmed
+    (via screen recording) to never change -- meaning some other
+    stylesheet was overriding ours after some reruns.
+    """
+    lines = "\n".join(f"  --{k}: {v} !important;" for k, v in theme.items())
     return f":root {{\n{lines}\n}}"
+
+
+
 
 
 _TABLER_ICONS_LINK = (

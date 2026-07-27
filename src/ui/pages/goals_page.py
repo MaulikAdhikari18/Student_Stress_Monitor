@@ -5,7 +5,7 @@ import streamlit as st
 
 from src.db.goals import save_goals_db
 from src.services.streaks import compute_streaks, week_progress
-from src.ui.components import render_html
+from src.ui.components import render_html, aurora_hero_card, progress_ring_svg
 
 
 def render(user_id: int, history_df: pd.DataFrame, saved_goals: dict,
@@ -58,9 +58,9 @@ def render(user_id: int, history_df: pd.DataFrame, saved_goals: dict,
                 <div style="font-size:1.4rem;font-weight:700;
                             color:{'#639922' if met else '#993C1D'};">
                     {actual}
-                    <span style="font-size:0.85rem;font-weight:400;color:#888;">{u_a}</span>
+                    <span style="font-size:0.85rem;font-weight:400;color:var(--text-muted);">{u_a}</span>
                 </div>
-                <div style="font-size:0.82rem;color:#888;margin:2px 0 8px;">
+                <div style="font-size:0.82rem;color:var(--text-muted);margin:2px 0 8px;">
                     Target: {target} {u_t} &nbsp;|&nbsp; {status_txt} ({delta_str})
                 </div>
             </div>""")
@@ -87,15 +87,15 @@ def render(user_id: int, history_df: pd.DataFrame, saved_goals: dict,
             <div style="display:flex;align-items:center;
                         justify-content:space-between;margin-bottom:6px;">
                 <span class="goal-title" style="margin:0;">{label} &nbsp;
-                    <span style="font-weight:400;color:#888;font-size:0.8rem;">({rule})</span>
+                    <span style="font-weight:400;color:var(--text-muted);font-size:0.8rem;">({rule})</span>
                 </span>
                 <span class="{s_cls}">{s_txt}</span>
             </div>
-            <div style="background:#eee;border-radius:8px;height:12px;overflow:hidden;">
+            <div style="background:var(--border);border-radius:8px;height:12px;overflow:hidden;">
                 <div style="width:{pct}%;height:100%;background:{bar_c};
                             border-radius:8px;"></div>
             </div>
-            <div style="font-size:0.8rem;color:#888;margin-top:4px;">
+            <div style="font-size:0.8rem;color:var(--text-muted);margin-top:4px;">
                 {pct}% of last 7 sessions goal was met {"✅" if pct == 100 else ""}
             </div>
         </div>""")
@@ -107,15 +107,12 @@ def render(user_id: int, history_df: pd.DataFrame, saved_goals: dict,
     o_label = "Excellent 🌟" if overall >= 80 else "Good 👍" if overall >= 60 else "Needs work 💪"
     _, oc2, _ = st.columns([1, 2, 1])
     with oc2:
-        render_html(f"""
-        <div style="text-align:center;padding:1.5rem;background:#fafafa;
-                    border-radius:16px;border:0.5px solid #e0e0e0;">
-            <div style="font-size:3rem;font-weight:700;color:{o_color};">{overall}%</div>
-            <div style="font-size:1rem;color:#555;margin-top:4px;">{o_label}</div>
-            <div style="font-size:0.82rem;color:#888;margin-top:4px;">
-                Based on your last 7 logged sessions
-            </div>
-        </div>""")
+        value_html = (
+            f'<h1 style="margin:0;font-size:32px;color:{o_color};font-weight:700;">{overall}%</h1>'
+            f'<p style="margin:2px 0 0;font-size:0.95rem;color:var(--text-primary);">{o_label}</p>'
+            f'<p style="margin:2px 0 0;font-size:0.8rem;color:var(--text-muted);">Based on your last 7 logged sessions</p>'
+        )
+        render_html(aurora_hero_card("Overall goal score", value_html, progress_ring_svg(overall, o_color)))
 
     if hdf_g.empty:
         st.info("💡 Start logging daily sessions to see your streaks and progress fill up!")
